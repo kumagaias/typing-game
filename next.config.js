@@ -2,6 +2,8 @@
 const nextConfig = {
     output: 'export',
     trailingSlash: true,
+    basePath: '/typing-game',
+    assetPrefix: '/typing-game',
     images: {
         unoptimized: true
     }
