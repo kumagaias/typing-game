@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import ExplosionEffect from './ExplosionEffect'
 
 // ラウンド別の単語リスト
 const FOOD_WORDS = {
@@ -40,6 +41,10 @@ interface GameState {
   wordsCompleted: number
 }
 
+interface EffectState {
+  showExplosion: boolean
+}
+
 export default function TypingGame() {
   const [gameState, setGameState] = useState<GameState>({
     round: 1,
@@ -51,6 +56,10 @@ export default function TypingGame() {
     gameStatus: 'waiting',
     winner: null,
     wordsCompleted: 0
+  })
+
+  const [effectState, setEffectState] = useState<EffectState>({
+    showExplosion: false
   })
 
   // ランダムな単語を生成（ラウンド別）
@@ -104,14 +113,24 @@ export default function TypingGame() {
       const newEnemyHP = Math.max(0, gameState.enemyHP - damage)
       
       if (newEnemyHP === 0) {
-        // プレイヤーの勝利
+        // 爆発エフェクトを表示
+        setEffectState(prev => ({ ...prev, showExplosion: true }))
+        
+        // 敵のHPを即座に0に設定（視覚的フィードバック）
         setGameState(prev => ({
           ...prev,
           enemyHP: 0,
-          gameStatus: 'roundEnd',
-          winner: 'player',
           wordsCompleted: newWordsCompleted
         }))
+        
+        // プレイヤーの勝利（エフェクト後に設定）
+        setTimeout(() => {
+          setGameState(prev => ({
+            ...prev,
+            gameStatus: 'roundEnd',
+            winner: 'player'
+          }))
+        }, 1500) // より長い演出時間
       } else {
         // 次の単語へ
         setGameState(prev => ({
@@ -140,6 +159,11 @@ export default function TypingGame() {
     }
   }
 
+  // 爆発エフェクト完了時の処理
+  const handleExplosionComplete = () => {
+    setEffectState(prev => ({ ...prev, showExplosion: false }))
+  }
+
   // ゲームリセット
   const resetGame = () => {
     setGameState({
@@ -152,6 +176,9 @@ export default function TypingGame() {
       gameStatus: 'waiting',
       winner: null,
       wordsCompleted: 0
+    })
+    setEffectState({
+      showExplosion: false
     })
   }
 
@@ -191,9 +218,13 @@ export default function TypingGame() {
         <div className="text-4xl font-bold text-red-500">VS</div>
 
         {/* 敵 */}
-        <div className="text-center">
-          <div className="w-32 h-32 bg-red-300 rounded-full flex items-center justify-center mb-4 mx-auto">
+        <div className="text-center relative">
+          <div className="w-32 h-32 bg-red-300 rounded-full flex items-center justify-center mb-4 mx-auto relative">
             <span className="text-4xl">{ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA].icon}</span>
+            <ExplosionEffect 
+              isVisible={effectState.showExplosion} 
+              onComplete={handleExplosionComplete}
+            />
           </div>
           <div className="text-lg font-semibold">{ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA].name}</div>
           <div className="w-32 bg-gray-200 rounded-full h-4 mt-2">
