@@ -43,6 +43,7 @@ interface GameState {
 
 interface EffectState {
   showExplosion: boolean
+  explosionSkippable: boolean
 }
 
 export default function TypingGame() {
@@ -59,7 +60,8 @@ export default function TypingGame() {
   })
 
   const [effectState, setEffectState] = useState<EffectState>({
-    showExplosion: false
+    showExplosion: false,
+    explosionSkippable: false
   })
 
   // ランダムな単語を生成（ラウンド別）
@@ -114,7 +116,7 @@ export default function TypingGame() {
       
       if (newEnemyHP === 0) {
         // 爆発エフェクトを表示
-        setEffectState(prev => ({ ...prev, showExplosion: true }))
+        setEffectState(prev => ({ ...prev, showExplosion: true, explosionSkippable: false }))
         
         // 敵のHPを即座に0に設定（視覚的フィードバック）
         setGameState(prev => ({
@@ -123,14 +125,22 @@ export default function TypingGame() {
           wordsCompleted: newWordsCompleted
         }))
         
+        // 0.5秒後にスキップ可能にする
+        setTimeout(() => {
+          setEffectState(prev => ({ ...prev, explosionSkippable: true }))
+        }, 500)
+        
         // プレイヤーの勝利（エフェクト後に設定）
         setTimeout(() => {
-          setGameState(prev => ({
-            ...prev,
-            gameStatus: 'roundEnd',
-            winner: 'player'
-          }))
-        }, 1500) // より長い演出時間
+          if (effectState.showExplosion) {
+            handleExplosionComplete()
+            setGameState(prev => ({
+              ...prev,
+              gameStatus: 'roundEnd',
+              winner: 'player'
+            }))
+          }
+        }, 1500)
       } else {
         // 次の単語へ
         setGameState(prev => ({
@@ -161,7 +171,19 @@ export default function TypingGame() {
 
   // 爆発エフェクト完了時の処理
   const handleExplosionComplete = () => {
-    setEffectState(prev => ({ ...prev, showExplosion: false }))
+    setEffectState(prev => ({ ...prev, showExplosion: false, explosionSkippable: false }))
+  }
+
+  // 爆発エフェクトをスキップ
+  const skipExplosion = () => {
+    if (effectState.explosionSkippable) {
+      handleExplosionComplete()
+      setGameState(prev => ({
+        ...prev,
+        gameStatus: 'roundEnd',
+        winner: 'player'
+      }))
+    }
   }
 
   // ゲームリセット
@@ -178,7 +200,8 @@ export default function TypingGame() {
       wordsCompleted: 0
     })
     setEffectState({
-      showExplosion: false
+      showExplosion: false,
+      explosionSkippable: false
     })
   }
 
@@ -219,11 +242,15 @@ export default function TypingGame() {
 
         {/* 敵 */}
         <div className="text-center relative">
-          <div className="w-32 h-32 bg-red-300 rounded-full flex items-center justify-center mb-4 mx-auto relative">
+          <div 
+            className="w-32 h-32 bg-red-300 rounded-full flex items-center justify-center mb-4 mx-auto relative cursor-pointer"
+            onClick={skipExplosion}
+          >
             <span className="text-4xl">{ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA].icon}</span>
             <ExplosionEffect 
               isVisible={effectState.showExplosion} 
               onComplete={handleExplosionComplete}
+              skippable={effectState.explosionSkippable}
             />
           </div>
           <div className="text-lg font-semibold">{ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA].name}</div>
@@ -236,6 +263,18 @@ export default function TypingGame() {
           <div className="text-sm mt-1">HP: {gameState.enemyHP}/100</div>
         </div>
       </div>
+
+      {/* 爆発中のスキップ領域 */}
+      {effectState.showExplosion && effectState.explosionSkippable && (
+        <div 
+          className="fixed inset-0 z-50 cursor-pointer flex items-center justify-center"
+          onClick={skipExplosion}
+        >
+          <div className="bg-black bg-opacity-50 text-white px-4 py-2 rounded-lg animate-pulse">
+            画面をクリックしてスキップ
+          </div>
+        </div>
+      )}
 
       {/* ゲーム画面 */}
       <div className="max-w-2xl mx-auto">
@@ -278,18 +317,74 @@ export default function TypingGame() {
 
         {gameState.gameStatus === 'roundEnd' && (
           <div className="text-center">
-            <div className="mb-6">
-              <h3 className="text-3xl font-bold mb-4">
-                {gameState.winner === 'player' ? '🎉 あなたの勝利！' : '😢 敗北...'}
-              </h3>
-              <p className="text-lg">完了した単語数: {gameState.wordsCompleted}</p>
-            </div>
-            <button
-              onClick={nextRound}
-              className="bg-green-500 hover:bg-green-700 text-white font-bold py-4 px-8 rounded-lg text-xl"
-            >
-              {gameState.round >= 3 ? '結果を見る' : '次のラウンドへ'}
-            </button>
+            {gameState.winner === 'player' ? (
+              <div>
+                <h3 className="text-4xl font-bold mb-6 text-green-600">🎉 勝利！</h3>
+                
+                {/* 倒した敵の情報 */}
+                <div className="bg-gray-100 rounded-lg p-6 mb-6 max-w-md mx-auto">
+                  <h4 className="text-xl font-semibold mb-4">倒した敵</h4>
+                  <div className="flex items-center justify-center mb-4">
+                    <div className="w-20 h-20 bg-red-300 rounded-full flex items-center justify-center mr-4 opacity-50">
+                      <span className="text-3xl">{ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA].icon}</span>
+                    </div>
+                    <div className="text-left">
+                      <div className="font-semibold">{ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA].name}</div>
+                      <div className="text-sm text-gray-600">HP: 0/100 (撃破)</div>
+                      <div className="text-sm text-blue-600">完了単語数: {gameState.wordsCompleted}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 次の敵の予告 */}
+                {gameState.round < 3 ? (
+                  <div className="bg-blue-50 rounded-lg p-6 mb-6 max-w-md mx-auto">
+                    <h4 className="text-xl font-semibold mb-4">次の敵</h4>
+                    <div className="flex items-center justify-center mb-4">
+                      <div className="w-20 h-20 bg-purple-200 rounded-full flex items-center justify-center mr-4 animate-pulse">
+                        <span className="text-3xl">❓</span>
+                      </div>
+                      <div className="text-left">
+                        <div className="font-semibold">{ENEMY_DATA[(gameState.round + 1) as keyof typeof ENEMY_DATA].name}</div>
+                        <div className="text-sm text-gray-600">HP: 100/100</div>
+                        <div className="text-sm text-red-600">制限時間: {ENEMY_DATA[(gameState.round + 1) as keyof typeof ENEMY_DATA].timeLimit}秒</div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-gradient-to-r from-yellow-100 to-yellow-200 rounded-lg p-6 mb-6 max-w-md mx-auto">
+                    <h4 className="text-2xl font-bold mb-4 text-yellow-800">🏆 全ての敵を撃破！</h4>
+                    <div className="text-6xl mb-4">🎊</div>
+                    <p className="text-lg text-yellow-700">おめでとうございます！<br/>全てのラウンドをクリアしました！</p>
+                  </div>
+                )}
+
+                <button
+                  onClick={nextRound}
+                  className={`font-bold py-4 px-8 rounded-lg text-xl transition-colors ${
+                    gameState.round >= 3 
+                      ? 'bg-yellow-500 hover:bg-yellow-600 text-white' 
+                      : 'bg-green-500 hover:bg-green-700 text-white'
+                  }`}
+                >
+                  {gameState.round >= 3 ? '🏆 ゲーム完了' : '⚔️ 次のラウンドへ'}
+                </button>
+              </div>
+            ) : (
+              <div>
+                <h3 className="text-3xl font-bold mb-4 text-red-600">😢 敗北...</h3>
+                <div className="bg-gray-100 rounded-lg p-6 mb-6 max-w-md mx-auto">
+                  <p className="text-lg mb-2">完了した単語数: {gameState.wordsCompleted}</p>
+                  <p className="text-sm text-gray-600">もう一度挑戦してみましょう！</p>
+                </div>
+                <button
+                  onClick={resetGame}
+                  className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-lg text-xl"
+                >
+                  🔄 もう一度挑戦
+                </button>
+              </div>
+            )}
           </div>
         )}
 

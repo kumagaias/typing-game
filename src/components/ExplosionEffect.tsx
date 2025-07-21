@@ -5,9 +5,10 @@ import { useEffect, useState } from 'react'
 interface ExplosionEffectProps {
   isVisible: boolean
   onComplete: () => void
+  skippable?: boolean
 }
 
-export default function ExplosionEffect({ isVisible, onComplete }: ExplosionEffectProps) {
+export default function ExplosionEffect({ isVisible, onComplete, skippable = false }: ExplosionEffectProps) {
   const [particles, setParticles] = useState<Array<{ 
     id: number; 
     x: number; 
@@ -46,6 +47,13 @@ export default function ExplosionEffect({ isVisible, onComplete }: ExplosionEffe
 
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
+      {/* スキップ可能な場合のヒント */}
+      {skippable && (
+        <div className="skip-hint">
+          クリックでスキップ
+        </div>
+      )}
+      
       {/* 画面全体の閃光エフェクト */}
       <div className="screen-flash"></div>
       
@@ -93,6 +101,21 @@ export default function ExplosionEffect({ isVisible, onComplete }: ExplosionEffe
       ))}
 
       <style jsx>{`
+        .skip-hint {
+          position: absolute;
+          top: -40px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: rgba(0, 0, 0, 0.8);
+          color: white;
+          padding: 4px 8px;
+          border-radius: 4px;
+          font-size: 0.8rem;
+          animation: pulse 1s infinite;
+          pointer-events: none;
+          z-index: 1001;
+        }
+
         .screen-flash {
           position: fixed;
           top: 0;
@@ -130,6 +153,11 @@ export default function ExplosionEffect({ isVisible, onComplete }: ExplosionEffe
           animation: mega-particle-fly 2s ease-out forwards;
           animation-delay: var(--delay);
           filter: drop-shadow(0 0 10px rgba(255, 255, 0, 0.6));
+        }
+
+        @keyframes pulse {
+          0%, 100% { opacity: 0.7; }
+          50% { opacity: 1; }
         }
 
         @keyframes flash {
