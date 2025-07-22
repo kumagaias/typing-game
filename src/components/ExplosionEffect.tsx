@@ -108,12 +108,14 @@ export default function ExplosionEffect({ isVisible, onComplete, skippable = fal
           transform: translateX(-50%);
           background: rgba(0, 0, 0, 0.8);
           color: white;
-          padding: 4px 8px;
+          padding: 4px 12px;
           border-radius: 4px;
           font-size: 0.8rem;
           animation: pulse 1s infinite;
           pointer-events: none;
           z-index: 1001;
+          white-space: nowrap;
+          min-width: fit-content;
         }
 
         .screen-flash {
