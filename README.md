@@ -1,6 +1,7 @@
 # タイピングゲーム
 
-Next.jsで作成したタイピングゲームです。
+Next.jsで作成したタイピングゲームです。  
+https://kumagaias.github.io/typing-game/
 
 ## 🎮 ゲームの特徴
 

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import ExplosionEffect from './ExplosionEffect'
 import DamageEffect from './DamageEffect'
 import ComboEffect from './ComboEffect'
+import EnemyDamageEffect from './EnemyDamageEffect'
 
 // ラウンド別の単語リスト（難易度アップ）
 const FOOD_WORDS = {
@@ -60,6 +61,8 @@ interface EffectState {
   showExplosion: boolean
   explosionSkippable: boolean
   showDamage: boolean
+  showEnemyDamage: boolean
+  lastDamage: number
 }
 
 export default function TypingGame() {
@@ -81,7 +84,9 @@ export default function TypingGame() {
   const [effectState, setEffectState] = useState<EffectState>({
     showExplosion: false,
     explosionSkippable: false,
-    showDamage: false
+    showDamage: false,
+    showEnemyDamage: false,
+    lastDamage: 0
   })
 
   const inputRef = useRef<HTMLInputElement>(null)
@@ -226,6 +231,13 @@ export default function TypingGame() {
       const newPlayerHP = Math.min(100, Math.max(0, gameState.playerHP + playerHPChange))
       const newTimeLeft = Math.min(ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA].timeLimit, gameState.timeLeft + timeBonus)
       
+      // 敵ダメージエフェクトを表示
+      setEffectState(prev => ({ 
+        ...prev, 
+        showEnemyDamage: true, 
+        lastDamage: damage 
+      }))
+      
       // 入力をクリア
       clearInput()
       
@@ -335,6 +347,11 @@ export default function TypingGame() {
   // ダメージエフェクト完了時の処理
   const handleDamageComplete = () => {
     setEffectState(prev => ({ ...prev, showDamage: false }))
+  }
+
+  // 敵ダメージエフェクト完了時の処理
+  const handleEnemyDamageComplete = () => {
+    setEffectState(prev => ({ ...prev, showEnemyDamage: false, lastDamage: 0 }))
   }
 
   // 爆発エフェクトをスキップ
