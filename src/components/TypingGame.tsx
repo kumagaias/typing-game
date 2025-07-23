@@ -55,6 +55,11 @@ interface GameState {
   combo: number
   isSpecialWord: boolean
   specialType: 'normal' | 'bonus' | 'debuff'
+  lastWord: string
+  score: number
+  maxCombo: number
+  roundStartTime: number
+  totalTime: number
 }
 
 interface EffectState {
@@ -78,7 +83,12 @@ export default function TypingGame() {
     wordsCompleted: 0,
     combo: 0,
     isSpecialWord: false,
-    specialType: 'normal'
+    specialType: 'normal',
+    lastWord: '',
+    score: 0,
+    maxCombo: 0,
+    roundStartTime: 0,
+    totalTime: 0
   })
 
   const [effectState, setEffectState] = useState<EffectState>({
@@ -92,25 +102,56 @@ export default function TypingGame() {
   const inputRef = useRef<HTMLInputElement>(null)
   const [isComposing, setIsComposing] = useState(false)
 
-  // ランダムな単語を生成（特殊効果付き）
-  const generateRandomWord = useCallback((round: number) => {
+  // スコア計算関数
+  const calculateScore = (damage: number, combo: number, specialType: string, timeBonus: number = 0) => {
+    let baseScore = damage * 10 // 基本スコア
+    
+    // コンボボーナス
+    const comboBonus = combo >= 3 ? Math.pow(combo - 2, 1.5) * 50 : 0
+    
+    // 特殊単語ボーナス
+    let specialBonus = 0
+    if (specialType === 'bonus') specialBonus = 200
+    if (specialType === 'debuff') specialBonus = 100 // デバフでも少しボーナス
+    
+    // 時間ボーナス
+    const timeBonusScore = timeBonus * 20
+    
+    return Math.floor(baseScore + comboBonus + specialBonus + timeBonusScore)
+  }
+
+  // ランダムな単語を生成（特殊効果付き、重複回避）
+  const generateRandomWord = useCallback((round: number, lastWord: string = '') => {
     const roundWords = FOOD_WORDS[round as keyof typeof FOOD_WORDS]
+    let selectedWord: string
+    let wordType: 'normal' | 'bonus' | 'debuff' = 'normal'
     
     // 20%の確率で特殊単語
     if (Math.random() < 0.2) {
       const isBonus = Math.random() < 0.6 // 60%でボーナス、40%でデバフ
       const specialWords = isBonus ? SPECIAL_WORDS.bonus : SPECIAL_WORDS.debuff
-      const randomIndex = Math.floor(Math.random() * specialWords.length)
-      return {
-        word: specialWords[randomIndex],
-        type: isBonus ? 'bonus' : 'debuff'
-      }
+      wordType = isBonus ? 'bonus' : 'debuff'
+      
+      // 特殊単語から選択（重複回避）
+      let attempts = 0
+      do {
+        const randomIndex = Math.floor(Math.random() * specialWords.length)
+        selectedWord = specialWords[randomIndex]
+        attempts++
+      } while (selectedWord === lastWord && attempts < 10)
+    } else {
+      // 通常単語から選択（重複回避）
+      let attempts = 0
+      do {
+        const randomIndex = Math.floor(Math.random() * roundWords.length)
+        selectedWord = roundWords[randomIndex]
+        attempts++
+      } while (selectedWord === lastWord && attempts < 10)
     }
     
-    const randomIndex = Math.floor(Math.random() * roundWords.length)
     return {
-      word: roundWords[randomIndex],
-      type: 'normal'
+      word: selectedWord,
+      type: wordType
     }
   }, [])
 
@@ -118,17 +159,20 @@ export default function TypingGame() {
   const startRound = useCallback(() => {
     setGameState(prev => {
       const timeLimit = ENEMY_DATA[prev.round as keyof typeof ENEMY_DATA].timeLimit
-      const wordData = generateRandomWord(prev.round)
+      const wordData = generateRandomWord(prev.round, prev.lastWord)
+      const newWord = typeof wordData === 'string' ? wordData : wordData.word
       return {
         ...prev,
-        currentWord: typeof wordData === 'string' ? wordData : wordData.word,
+        currentWord: newWord,
         userInput: '',
         timeLeft: timeLimit,
         gameStatus: 'playing',
         wordsCompleted: 0,
         combo: 0,
         isSpecialWord: typeof wordData !== 'string',
-        specialType: typeof wordData === 'string' ? 'normal' : wordData.type
+        specialType: typeof wordData === 'string' ? 'normal' : wordData.type,
+        lastWord: newWord,
+        roundStartTime: Date.now()
       }
     })
     
@@ -231,6 +275,11 @@ export default function TypingGame() {
       const newPlayerHP = Math.min(100, Math.max(0, gameState.playerHP + playerHPChange))
       const newTimeLeft = Math.min(ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA].timeLimit, gameState.timeLeft + timeBonus)
       
+      // スコア計算
+      const scoreGain = calculateScore(damage, newCombo, gameState.specialType, timeBonus)
+      const newScore = gameState.score + scoreGain
+      const newMaxCombo = Math.max(gameState.maxCombo, newCombo)
+      
       // 敵ダメージエフェクトを表示
       setEffectState(prev => ({ 
         ...prev, 
@@ -242,6 +291,12 @@ export default function TypingGame() {
       clearInput()
       
       if (newEnemyHP === 0) {
+        // ラウンド完了時の時間ボーナス計算
+        const roundTime = (Date.now() - gameState.roundStartTime) / 1000
+        const timeLimit = ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA].timeLimit
+        const timeBonusScore = Math.max(0, Math.floor((timeLimit - roundTime) * 10))
+        const finalScore = newScore + timeBonusScore
+        
         // 爆発エフェクトを表示
         setEffectState(prev => ({ ...prev, showExplosion: true, explosionSkippable: false }))
         
@@ -251,7 +306,10 @@ export default function TypingGame() {
           enemyHP: 0,
           playerHP: newPlayerHP,
           wordsCompleted: newWordsCompleted,
-          combo: newCombo
+          combo: newCombo,
+          score: finalScore,
+          maxCombo: newMaxCombo,
+          totalTime: prev.totalTime + roundTime
         }))
         
         // 0.5秒後にスキップ可能にする
@@ -270,23 +328,27 @@ export default function TypingGame() {
         }, 1500)
       } else {
         // 次の単語へ
-        const wordData = generateRandomWord(gameState.round)
+        const wordData = generateRandomWord(gameState.round, gameState.currentWord)
+        const newWord = typeof wordData === 'string' ? wordData : wordData.word
         setGameState(prev => ({
           ...prev,
-          currentWord: typeof wordData === 'string' ? wordData : wordData.word,
+          currentWord: newWord,
           enemyHP: newEnemyHP,
           playerHP: newPlayerHP,
           timeLeft: newTimeLeft,
           wordsCompleted: newWordsCompleted,
           combo: newCombo,
+          score: newScore,
+          maxCombo: newMaxCombo,
           isSpecialWord: typeof wordData !== 'string',
-          specialType: typeof wordData === 'string' ? 'normal' : wordData.type
+          specialType: typeof wordData === 'string' ? 'normal' : wordData.type,
+          lastWord: newWord
         }))
       }
     }
   }
 
-  // Enterキー押下時の処理
+  // キーボードイベント処理
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !isComposing) {
       const input = gameState.userInput
@@ -323,6 +385,31 @@ export default function TypingGame() {
       }
     }
   }
+
+  // グローバルキーボードイベント処理（ゲーム進行用）
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // スペースキーでゲーム進行
+      if (e.code === 'Space') {
+        e.preventDefault() // スクロールを防ぐ
+        
+        if (gameState.gameStatus === 'waiting') {
+          startRound()
+        } else if (gameState.gameStatus === 'roundEnd') {
+          if (gameState.winner === 'player') {
+            nextRound()
+          } else {
+            retryRound()
+          }
+        } else if (gameState.gameStatus === 'gameEnd') {
+          resetGame()
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleGlobalKeyDown)
+    return () => document.removeEventListener('keydown', handleGlobalKeyDown)
+  }, [gameState.gameStatus, gameState.winner])
 
   // 次のラウンドへ
   const nextRound = () => {
@@ -380,12 +467,18 @@ export default function TypingGame() {
       wordsCompleted: 0,
       combo: 0,
       isSpecialWord: false,
-      specialType: 'normal'
+      specialType: 'normal',
+      lastWord: '', // リトライ時は前の単語をリセット
+      // スコア関連はリセットしない（累積）
+      maxCombo: 0,
+      roundStartTime: 0
     }))
     setEffectState({
       showExplosion: false,
       explosionSkippable: false,
-      showDamage: false
+      showDamage: false,
+      showEnemyDamage: false,
+      lastDamage: 0
     })
   }
 
@@ -403,12 +496,19 @@ export default function TypingGame() {
       wordsCompleted: 0,
       combo: 0,
       isSpecialWord: false,
-      specialType: 'normal'
+      specialType: 'normal',
+      lastWord: '', // リセット時は前の単語をクリア
+      score: 0,
+      maxCombo: 0,
+      roundStartTime: 0,
+      totalTime: 0
     })
     setEffectState({
       showExplosion: false,
       explosionSkippable: false,
-      showDamage: false
+      showDamage: false,
+      showEnemyDamage: false,
+      lastDamage: 0
     })
   }
 
@@ -506,6 +606,9 @@ export default function TypingGame() {
             >
               ラウンド {gameState.round} 開始！
             </button>
+            <div className="mt-2 text-sm text-gray-600">
+              💡 スペースキーでも開始できます
+            </div>
           </div>
         )}
 
@@ -515,17 +618,21 @@ export default function TypingGame() {
               <span className="text-base">残り時間: </span>
               <span className="text-xl font-bold text-red-500">{gameState.timeLeft}秒</span>
             </div>
-            <div className="mb-3 flex justify-center space-x-4">
+            <div className="mb-3 flex justify-center space-x-3">
               <div>
-                <span className="text-sm">完了: </span>
-                <span className="text-lg font-bold">{gameState.wordsCompleted}</span>
+                <span className="text-xs">完了: </span>
+                <span className="text-base font-bold">{gameState.wordsCompleted}</span>
               </div>
               <div>
-                <span className="text-sm">コンボ: </span>
-                <span className={`text-lg font-bold ${gameState.combo >= 3 ? 'text-yellow-500' : 'text-blue-500'}`}>
+                <span className="text-xs">コンボ: </span>
+                <span className={`text-base font-bold ${gameState.combo >= 3 ? 'text-yellow-500' : 'text-blue-500'}`}>
                   {gameState.combo}
                   {gameState.combo >= 3 && '🔥'}
                 </span>
+              </div>
+              <div>
+                <span className="text-xs">スコア: </span>
+                <span className="text-base font-bold text-green-600">{gameState.score.toLocaleString()}</span>
               </div>
             </div>
             <div className="mb-4">
@@ -592,6 +699,7 @@ export default function TypingGame() {
                         <div className="font-semibold">{ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA].name}</div>
                         <div className="text-gray-600">HP: 0/100 (撃破)</div>
                         <div className="text-blue-600">単語: {gameState.wordsCompleted}</div>
+                        <div className="text-green-600">スコア: {gameState.score.toLocaleString()}</div>
                       </div>
                     </div>
                   </div>
@@ -630,12 +738,28 @@ export default function TypingGame() {
                 >
                   {gameState.round >= 3 ? '🏆 ゲーム完了' : '⚔️ 次のラウンドへ'}
                 </button>
+                <div className="mt-2 text-xs text-gray-600">
+                  💡 スペースキーでも進めます
+                </div>
               </div>
             ) : (
               <div>
                 <h3 className="text-2xl font-bold mb-3 text-red-600">😢 敗北...</h3>
                 <div className="bg-gray-100 rounded-lg p-4 mb-4 max-w-sm mx-auto">
-                  <p className="text-base mb-1">完了した単語数: {gameState.wordsCompleted}</p>
+                  <div className="space-y-1 text-sm mb-2">
+                    <div className="flex justify-between">
+                      <span>完了単語数:</span>
+                      <span className="font-bold">{gameState.wordsCompleted}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>現在のスコア:</span>
+                      <span className="font-bold text-green-600">{gameState.score.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>最大コンボ:</span>
+                      <span className="font-bold text-blue-600">{gameState.maxCombo}</span>
+                    </div>
+                  </div>
                   <p className="text-xs text-gray-600">このラウンドから再挑戦するか、最初からやり直せます</p>
                 </div>
                 <div className="space-y-2">
@@ -651,6 +775,9 @@ export default function TypingGame() {
                   >
                     🏠 最初から
                   </button>
+                  <div className="mt-2 text-xs text-gray-600">
+                    💡 スペースキーで再挑戦できます
+                  </div>
                 </div>
               </div>
             )}
@@ -659,13 +786,42 @@ export default function TypingGame() {
 
         {gameState.gameStatus === 'gameEnd' && (
           <div className="text-center">
-            <h3 className="text-4xl font-bold mb-6">🏆 ゲーム終了！</h3>
+            <h3 className="text-3xl font-bold mb-4">🏆 ゲーム終了！</h3>
+            
+            {/* 最終スコア表示 */}
+            <div className="bg-gradient-to-r from-yellow-100 to-yellow-200 rounded-lg p-4 mb-4 max-w-sm mx-auto">
+              <h4 className="text-lg font-bold text-yellow-800 mb-3">最終スコア</h4>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span>総スコア:</span>
+                  <span className="font-bold text-green-600">{gameState.score.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>最大コンボ:</span>
+                  <span className="font-bold text-blue-600">{gameState.maxCombo}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>総プレイ時間:</span>
+                  <span className="font-bold text-purple-600">{Math.floor(gameState.totalTime)}秒</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>平均スコア/秒:</span>
+                  <span className="font-bold text-orange-600">
+                    {gameState.totalTime > 0 ? Math.floor(gameState.score / gameState.totalTime) : 0}
+                  </span>
+                </div>
+              </div>
+            </div>
+            
             <button
               onClick={resetGame}
-              className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-4 px-8 rounded-lg text-xl"
+              className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg text-lg"
             >
               もう一度プレイ
             </button>
+            <div className="mt-2 text-sm text-gray-600">
+              💡 スペースキーでも再開できます
+            </div>
           </div>
         )}
       </div>
