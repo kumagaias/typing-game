@@ -1,17 +1,17 @@
 # Dependencies
-/node_modules
-/.pnp
+node_modules/
+.pnp
 .pnp.js
 
 # Testing
-/coverage
+coverage/
 
-# Next.js
-/.next/
-/out/
+# Next.js (Frontend)
+frontend/.next/
+frontend/out/
 
 # Production
-/build
+build/
 
 # Misc
 .DS_Store
@@ -24,6 +24,7 @@ yarn-error.log*
 
 # Local env files
 .env*.local
+.env
 
 # Vercel
 .vercel
@@ -31,3 +32,12 @@ yarn-error.log*
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# Infrastructure
+infrastructure/cdk.out/
+infrastructure/terraform.tfstate*
+infrastructure/.terraform/
+
+# IDE
+.vscode/
+.idea/
