@@ -5,6 +5,7 @@ import ExplosionEffect from './ExplosionEffect'
 import DamageEffect from './DamageEffect'
 import ComboEffect from './ComboEffect'
 import EnemyDamageEffect from './EnemyDamageEffect'
+import ScoreEffect from './ScoreEffect'
 
 // ラウンド別の単語リスト（難易度アップ）
 const FOOD_WORDS = {
@@ -26,6 +27,22 @@ const FOOD_WORDS = {
     'かるぼなーら', 'ぺぺろんちーの', 'ちーずけーき', 'しょーとけーき',
     'てぃらみす', 'ぱんなこった', 'くれーむぶりゅれ', 'まかろん',
     'えくれあ', 'みるふぃーゆ', 'ろーるけーき', 'もんぶらん'
+  ],
+  4: [
+    'れいぞうこ', 'せんたくき', 'でんしれんじ', 'えあこん', 'てれび', 'らじお',
+    'そうじき', 'すいはんき', 'とーすたー', 'どらいやー', 'あいろん', 'でんきぽっと',
+    'こーひーめーかー', 'じゅーさーみきさー', 'ほっとぷれーと', 'おーぶんとーすたー',
+    'でんきけとる', 'ふーどぷろせっさー', 'はんどみきさー', 'よーぐるとめーかー',
+    'あいすくりーむめーかー', 'ぱんやきき', 'たこやきき', 'ほっとさんどめーかー',
+    'でんきぐりる', 'すちーむおーぶん', 'でんきなべ', 'いんだくしょんひーたー'
+  ],
+  5: [
+    'おひつじざ', 'おうしざ', 'ふたござ', 'かにざ', 'ししざ', 'おとめざ',
+    'てんびんざ', 'さそりざ', 'いてざ', 'やぎざ', 'みずがめざ', 'うおざ',
+    'はくちょうざ', 'わしざ', 'こぐまざ', 'おおぐまざ', 'りゅうざ',
+    'ぺがすすざ', 'あんどろめだざ', 'かしおぺあざ', 'おりおんざ',
+    'こいぬざ', 'おおいぬざ', 'うさぎざ', 'はとざ', 'からすざ',
+    'きりんざ', 'ろくぶんぎざ', 'ぼうえんきょうざ', 'とけいざ', 'みなみじゅうじざ'
   ]
 }
 
@@ -39,30 +56,53 @@ const SPECIAL_WORDS = {
 const ENEMY_DATA = {
   1: {
     icon: '👹',
+    defeatedIcon: '❌',
     name: '初級の鬼',
-    timeLimit: 45,
-    requiredWords: 8,
+    timeLimit: 50,
+    maxHP: 100,
     backgroundImage: '/images/background/mountain.png',
     backgroundOverlay: 'bg-gradient-to-br from-orange-500/20 via-red-500/10 to-pink-500/20',
     theme: 'fire'
   },
   2: {
-    icon: '🐉',
-    name: '中級の竜',
-    timeLimit: 35,
-    requiredWords: 10,
+    icon: '🐺',
+    defeatedIcon: '❌',
+    name: '野獣の狼',
+    timeLimit: 45,
+    maxHP: 120,
     backgroundImage: '/images/background/mountain.png',
-    backgroundOverlay: 'bg-gradient-to-br from-blue-500/20 via-indigo-500/10 to-purple-500/20',
-    theme: 'water'
+    backgroundOverlay: 'bg-gradient-to-br from-gray-500/20 via-slate-500/10 to-stone-500/20',
+    theme: 'beast'
   },
   3: {
-    icon: '💀',
-    name: '最終ボス',
-    timeLimit: 25,
-    requiredWords: 12,
+    icon: '🐉',
+    defeatedIcon: '❌',
+    name: '古龍',
+    timeLimit: 40,
+    maxHP: 150,
     backgroundImage: '/images/background/mountain.png',
-    backgroundOverlay: 'bg-gradient-to-br from-gray-900/60 via-purple-900/40 to-black/60',
-    theme: 'dark'
+    backgroundOverlay: 'bg-gradient-to-br from-blue-500/20 via-indigo-500/10 to-purple-500/20',
+    theme: 'dragon'
+  },
+  4: {
+    icon: '⚡',
+    defeatedIcon: '❌',
+    name: '雷神',
+    timeLimit: 35,
+    maxHP: 200,
+    backgroundImage: '/images/background/mountain.png',
+    backgroundOverlay: 'bg-gradient-to-br from-yellow-500/30 via-amber-500/20 to-orange-500/30',
+    theme: 'thunder'
+  },
+  5: {
+    icon: '🌟',
+    defeatedIcon: '❌',
+    name: '星の支配者',
+    timeLimit: 30,
+    maxHP: 300,
+    backgroundImage: '/images/background/mountain.png',
+    backgroundOverlay: 'bg-gradient-to-br from-purple-600/40 via-indigo-600/30 to-black/50',
+    theme: 'cosmic'
   }
 }
 
@@ -84,6 +124,7 @@ interface GameState {
   maxCombo: number
   roundStartTime: number
   totalTime: number
+  roundStartScore: number
 }
 
 interface EffectState {
@@ -92,13 +133,16 @@ interface EffectState {
   showDamage: boolean
   showEnemyDamage: boolean
   lastDamage: number
+  showScoreEffect: boolean
+  lastScoreGain: number
+  scoreEffectKey: number
 }
 
 export default function TypingGame() {
   const [gameState, setGameState] = useState<GameState>({
     round: 1,
     playerHP: 100,
-    enemyHP: 100,
+    enemyHP: ENEMY_DATA[1].maxHP,
     currentWord: '',
     userInput: '',
     timeLeft: 45,
@@ -112,7 +156,8 @@ export default function TypingGame() {
     score: 0,
     maxCombo: 0,
     roundStartTime: 0,
-    totalTime: 0
+    totalTime: 0,
+    roundStartScore: 0
   })
 
   const [effectState, setEffectState] = useState<EffectState>({
@@ -120,7 +165,10 @@ export default function TypingGame() {
     explosionSkippable: false,
     showDamage: false,
     showEnemyDamage: false,
-    lastDamage: 0
+    lastDamage: 0,
+    showScoreEffect: false,
+    lastScoreGain: 0,
+    scoreEffectKey: 0
   })
 
   const inputRef = useRef<HTMLInputElement>(null)
@@ -146,7 +194,7 @@ export default function TypingGame() {
 
   // ランダムな単語を生成（特殊効果付き、重複回避）
   const generateRandomWord = useCallback((round: number, lastWord: string = '') => {
-    const roundWords = FOOD_WORDS[round as keyof typeof FOOD_WORDS]
+    const roundWords = FOOD_WORDS[round as keyof typeof FOOD_WORDS] || FOOD_WORDS[3] // フォールバック
     let selectedWord: string
     let wordType: 'normal' | 'bonus' | 'debuff' = 'normal'
 
@@ -196,7 +244,8 @@ export default function TypingGame() {
         isSpecialWord: typeof wordData !== 'string',
         specialType: typeof wordData === 'string' ? 'normal' : wordData.type,
         lastWord: newWord,
-        roundStartTime: Date.now()
+        roundStartTime: Date.now(),
+        roundStartScore: prev.score
       }
     })
 
@@ -304,11 +353,14 @@ export default function TypingGame() {
       const newScore = gameState.score + scoreGain
       const newMaxCombo = Math.max(gameState.maxCombo, newCombo)
 
-      // 敵ダメージエフェクトを表示
+      // 敵ダメージエフェクトとスコアエフェクトを表示
       setEffectState(prev => ({
         ...prev,
         showEnemyDamage: true,
-        lastDamage: damage
+        lastDamage: damage,
+        showScoreEffect: true,
+        lastScoreGain: scoreGain,
+        scoreEffectKey: Date.now() // 一意のキーを生成
       }))
 
       // 入力をクリア
@@ -437,15 +489,18 @@ export default function TypingGame() {
 
   // 次のラウンドへ
   const nextRound = () => {
-    if (gameState.round >= 3) {
+    if (gameState.round >= 5) {
       setGameState(prev => ({ ...prev, gameStatus: 'gameEnd' }))
     } else {
+      const nextRoundNum = gameState.round + 1
+      const nextEnemyData = ENEMY_DATA[nextRoundNum as keyof typeof ENEMY_DATA]
       setGameState(prev => ({
         ...prev,
-        round: prev.round + 1,
-        playerHP: 100,
-        enemyHP: 100,
-        gameStatus: 'waiting'
+        round: nextRoundNum,
+        playerHP: Math.min(100, prev.playerHP + 20),
+        enemyHP: nextEnemyData.maxHP,
+        gameStatus: 'waiting',
+        roundStartScore: prev.score
       }))
     }
   }
@@ -465,6 +520,11 @@ export default function TypingGame() {
     setEffectState(prev => ({ ...prev, showEnemyDamage: false, lastDamage: 0 }))
   }
 
+  // スコアエフェクト完了時の処理
+  const handleScoreEffectComplete = () => {
+    setEffectState(prev => ({ ...prev, showScoreEffect: false, lastScoreGain: 0 }))
+  }
+
   // 爆発エフェクトをスキップ
   const skipExplosion = () => {
     if (effectState.explosionSkippable && gameState.enemyHP === 0) {
@@ -482,7 +542,7 @@ export default function TypingGame() {
     setGameState(prev => ({
       ...prev,
       playerHP: 100,
-      enemyHP: 100,
+      enemyHP: currentEnemyData.maxHP,
       currentWord: '',
       userInput: '',
       timeLeft: ENEMY_DATA[prev.round as keyof typeof ENEMY_DATA].timeLimit,
@@ -493,7 +553,7 @@ export default function TypingGame() {
       isSpecialWord: false,
       specialType: 'normal',
       lastWord: '', // リトライ時は前の単語をリセット
-      // スコア関連はリセットしない（累積）
+      score: prev.roundStartScore, // スコアをラウンド開始時に戻す
       maxCombo: 0,
       roundStartTime: 0
     }))
@@ -502,7 +562,10 @@ export default function TypingGame() {
       explosionSkippable: false,
       showDamage: false,
       showEnemyDamage: false,
-      lastDamage: 0
+      lastDamage: 0,
+      showScoreEffect: false,
+      lastScoreGain: 0,
+      scoreEffectKey: 0
     })
   }
 
@@ -511,7 +574,7 @@ export default function TypingGame() {
     setGameState({
       round: 1,
       playerHP: 100,
-      enemyHP: 100,
+      enemyHP: ENEMY_DATA[1].maxHP,
       currentWord: '',
       userInput: '',
       timeLeft: 45,
@@ -525,14 +588,18 @@ export default function TypingGame() {
       score: 0,
       maxCombo: 0,
       roundStartTime: 0,
-      totalTime: 0
+      totalTime: 0,
+      roundStartScore: 0
     })
     setEffectState({
       showExplosion: false,
       explosionSkippable: false,
       showDamage: false,
       showEnemyDamage: false,
-      lastDamage: 0
+      lastDamage: 0,
+      showScoreEffect: false,
+      lastScoreGain: 0,
+      scoreEffectKey: 0
     })
   }
 
@@ -551,47 +618,55 @@ export default function TypingGame() {
       {/* コンテンツ */}
       <div className="relative z-10">
         <div className="container mx-auto px-4 py-4 max-w-4xl">
-          <h1 className={`text-3xl font-bold text-center mb-4 transition-colors duration-1000 ${theme === 'dark' ? 'text-white' : 'text-gray-800'
-            }`}>
+          <h1 className="text-3xl font-bold text-center mb-4 text-white drop-shadow-lg">
             タイピングゲーム
           </h1>
 
           {/* ラウンド表示 */}
           <div className="text-center mb-4">
-            <h2 className={`text-xl font-semibold transition-colors duration-1000 ${theme === 'dark' ? 'text-gray-200' : 'text-gray-800'
-              }`}>ラウンド {gameState.round}/3</h2>
-            <p className={`text-base mt-1 transition-colors duration-1000 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
-              }`}>
-              {ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA].name} -
-              制限時間: {ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA].timeLimit}秒
+            <h2 className="text-xl font-semibold text-white drop-shadow-lg">ラウンド {gameState.round}/5</h2>
+            <p className="text-base mt-1 text-white drop-shadow-lg relative">
+              スコア: <span className="text-green-300">{gameState.score.toLocaleString()}</span>
+              <ScoreEffect
+                key={effectState.scoreEffectKey}
+                scoreGain={effectState.lastScoreGain}
+                isVisible={effectState.showScoreEffect}
+                onComplete={handleScoreEffectComplete}
+              />
             </p>
           </div>
 
           {/* キャラクター表示 */}
-          <div className="flex justify-between items-center mb-4">
+          <div className="relative flex justify-between items-center mb-4">
             {/* プレイヤー */}
-            <div className="text-center relative">
+            <div className="text-center relative flex-1">
               <div className="w-32 h-32 bg-blue-300 rounded-full flex items-center justify-center mb-2 mx-auto relative">
-                <span className="text-7xl">🧑</span>
+                <span className="text-7xl">
+                  {gameState.playerHP === 0 && gameState.gameStatus === 'roundEnd' && gameState.winner === 'enemy'
+                    ? '😵'
+                    : '🧑'}
+                </span>
                 <DamageEffect
                   isVisible={effectState.showDamage}
                   onComplete={handleDamageComplete}
                 />
               </div>
               <div className="text-lg font-semibold text-white drop-shadow-lg">プレイヤー</div>
-              <div className="w-32 bg-gray-200 rounded-full h-4 mt-2">
-                <div
-                  className={`h-4 rounded-full transition-all duration-300 ${gameState.playerHP > 50 ? 'bg-green-500' :
-                    gameState.playerHP > 20 ? 'bg-yellow-500' : 'bg-red-500'
-                    }`}
-                  style={{ width: `${gameState.playerHP}%` }}
-                ></div>
+              <div className="flex justify-center">
+                <div className="w-32 bg-gray-200 rounded-full h-4 mt-2">
+                  <div
+                    className={`h-4 rounded-full transition-all duration-300 ${gameState.playerHP > 50 ? 'bg-green-500' :
+                      gameState.playerHP > 20 ? 'bg-yellow-500' : 'bg-red-500'
+                      }`}
+                    style={{ width: `${gameState.playerHP}%` }}
+                  ></div>
+                </div>
               </div>
               <div className="text-sm mt-1 text-white drop-shadow-lg">HP: {gameState.playerHP}/100</div>
             </div>
 
-            {/* VS */}
-            <div className="text-4xl font-bold text-red-500 relative">
+            {/* VS - 絶対中央配置 */}
+            <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 text-4xl font-bold text-red-500 z-10">
               VS
               <ComboEffect
                 combo={gameState.combo}
@@ -600,12 +675,16 @@ export default function TypingGame() {
             </div>
 
             {/* 敵 */}
-            <div className="text-center relative">
+            <div className="text-center relative flex-1">
               <div
                 className="w-32 h-32 bg-red-300 rounded-full flex items-center justify-center mb-2 mx-auto relative cursor-pointer"
                 onClick={skipExplosion}
               >
-                <span className="text-7xl">{ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA].icon}</span>
+                <span className="text-7xl">
+                  {gameState.enemyHP === 0 && gameState.gameStatus === 'roundEnd' && gameState.winner === 'player'
+                    ? ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA].defeatedIcon
+                    : ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA].icon}
+                </span>
                 <ExplosionEffect
                   isVisible={effectState.showExplosion}
                   onComplete={handleExplosionComplete}
@@ -613,13 +692,18 @@ export default function TypingGame() {
                 />
               </div>
               <div className="text-lg font-semibold text-white drop-shadow-lg">{ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA].name}</div>
-              <div className="w-32 bg-gray-200 rounded-full h-4 mt-2">
+              <div className="flex justify-center">
                 <div
-                  className="bg-red-500 h-4 rounded-full transition-all duration-300"
-                  style={{ width: `${gameState.enemyHP}%` }}
-                ></div>
+                  className="bg-gray-200 rounded-full h-4 mt-2 transition-all duration-300"
+                  style={{ width: `${Math.max(128, (ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA].maxHP / 100) * 128)}px` }}
+                >
+                  <div
+                    className="bg-red-500 h-4 rounded-full transition-all duration-300"
+                    style={{ width: `${(gameState.enemyHP / ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA].maxHP) * 100}%` }}
+                  ></div>
+                </div>
               </div>
-              <div className="text-sm mt-1 text-white drop-shadow-lg">HP: {gameState.enemyHP}/100</div>
+              <div className="text-sm mt-1 text-white drop-shadow-lg">HP: {gameState.enemyHP}/{ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA].maxHP}</div>
             </div>
           </div>
 
@@ -669,10 +753,7 @@ export default function TypingGame() {
                       {gameState.combo >= 3 && '🔥'}
                     </span>
                   </div>
-                  <div>
-                    <span className="text-xs text-white drop-shadow-lg">スコア: </span>
-                    <span className="text-base font-bold text-green-300 drop-shadow-lg">{gameState.score.toLocaleString()}</span>
-                  </div>
+
                 </div>
                 <div className="mb-4">
                   <div className={`text-2xl font-bold mb-3 p-3 rounded-lg ${gameState.specialType === 'bonus' ? 'bg-green-100 border-2 border-green-400' :
@@ -730,11 +811,11 @@ export default function TypingGame() {
                         <h4 className="text-sm font-semibold mb-2">倒した敵</h4>
                         <div className="flex items-center justify-center mb-2">
                           <div className="w-12 h-12 bg-red-300 rounded-full flex items-center justify-center mr-2 opacity-50">
-                            <span className="text-xl">{ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA].icon}</span>
+                            <span className="text-xl">{ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA].defeatedIcon}</span>
                           </div>
                           <div className="text-left text-xs">
                             <div className="font-semibold">{ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA].name}</div>
-                            <div className="text-gray-600">HP: 0/100 (撃破)</div>
+                            <div className="text-gray-600">HP: 0/{ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA].maxHP} (撃破)</div>
                             <div className="text-blue-600">単語: {gameState.wordsCompleted}</div>
                             <div className="text-green-600">スコア: {gameState.score.toLocaleString()}</div>
                           </div>
@@ -742,7 +823,7 @@ export default function TypingGame() {
                       </div>
 
                       {/* 次の敵の予告 */}
-                      {gameState.round < 3 ? (
+                      {gameState.round < 5 ? (
                         <div className="bg-blue-50 rounded-lg p-3 flex-1 max-w-xs">
                           <h4 className="text-sm font-semibold mb-2">次の敵</h4>
                           <div className="flex items-center justify-center mb-2">
@@ -751,7 +832,7 @@ export default function TypingGame() {
                             </div>
                             <div className="text-left text-xs">
                               <div className="font-semibold">{ENEMY_DATA[(gameState.round + 1) as keyof typeof ENEMY_DATA].name}</div>
-                              <div className="text-gray-600">HP: 100/100</div>
+                              <div className="text-gray-600">HP: {ENEMY_DATA[(gameState.round + 1) as keyof typeof ENEMY_DATA].maxHP}/{ENEMY_DATA[(gameState.round + 1) as keyof typeof ENEMY_DATA].maxHP}</div>
                               <div className="text-red-600">時間: {ENEMY_DATA[(gameState.round + 1) as keyof typeof ENEMY_DATA].timeLimit}秒</div>
                             </div>
                           </div>
@@ -767,12 +848,12 @@ export default function TypingGame() {
 
                     <button
                       onClick={nextRound}
-                      className={`font-bold py-3 px-6 rounded-lg text-lg transition-colors ${gameState.round >= 3
+                      className={`font-bold py-3 px-6 rounded-lg text-lg transition-colors ${gameState.round >= 5
                         ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
                         : 'bg-green-500 hover:bg-green-700 text-white'
                         }`}
                     >
-                      {gameState.round >= 3 ? '🏆 ゲーム完了' : '⚔️ 次のラウンドへ'}
+                      {gameState.round >= 5 ? '🏆 ゲーム完了' : '⚔️ 次のラウンドへ'}
                     </button>
                     <div className="mt-2 text-xs text-white drop-shadow-lg">
                       💡 スペースキーでも進めます
@@ -822,7 +903,7 @@ export default function TypingGame() {
 
             {gameState.gameStatus === 'gameEnd' && (
               <div className="text-center">
-                <h3 className="text-3xl font-bold mb-4">🏆 ゲーム終了！</h3>
+                <h3 className="text-3xl font-bold mb-4 text-white drop-shadow-lg">🏆 ゲーム終了！</h3>
 
                 {/* 最終スコア表示 */}
                 <div className="bg-gradient-to-r from-yellow-100 to-yellow-200 rounded-lg p-4 mb-4 max-w-sm mx-auto">
