@@ -36,8 +36,28 @@ next-env.d.ts
 # Infrastructure
 infrastructure/cdk.out/
 infrastructure/terraform.tfstate*
-infrastructure/.terraform/
+.terraform/
+**/.terraform/
+.terraform.lock.hcl
+**/.terraform.lock.hcl
 
 # IDE
 .vscode/
+.vscode/settings.json
 .idea/
+
+# Test files
+test-payload.json
+**/test-payload.json
+
+# Backup files
+*.backup
+**/*.backup
+
+
+
+# Environment files (may contain secrets)
+frontend/.env.production
+
+# Scripts (if temporary)
+backend/entry.sh

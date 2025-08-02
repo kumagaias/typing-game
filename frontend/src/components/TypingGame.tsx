@@ -6,6 +6,8 @@ import DamageEffect from './DamageEffect'
 import ComboEffect from './ComboEffect'
 import EnemyDamageEffect from './EnemyDamageEffect'
 import ScoreEffect from './ScoreEffect'
+import Leaderboard from './Leaderboard'
+import ScoreSubmission from './ScoreSubmission'
 
 // ラウンド別の単語リスト（難易度アップ）
 const FOOD_WORDS = {
@@ -170,6 +172,9 @@ export default function TypingGame() {
     lastScoreGain: 0,
     scoreEffectKey: 0
   })
+
+  const [showLeaderboard, setShowLeaderboard] = useState(false)
+  const [showScoreSubmission, setShowScoreSubmission] = useState(false)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const [isComposing, setIsComposing] = useState(false)
@@ -491,6 +496,7 @@ export default function TypingGame() {
   const nextRound = () => {
     if (gameState.round >= 5) {
       setGameState(prev => ({ ...prev, gameStatus: 'gameEnd' }))
+      setShowScoreSubmission(true)
     } else {
       const nextRoundNum = gameState.round + 1
       const nextEnemyData = ENEMY_DATA[nextRoundNum as keyof typeof ENEMY_DATA]
@@ -601,6 +607,8 @@ export default function TypingGame() {
       lastScoreGain: 0,
       scoreEffectKey: 0
     })
+    setShowScoreSubmission(false)
+    setShowLeaderboard(false)
   }
 
   // 現在の敵に応じた背景とテーマを取得
@@ -618,9 +626,18 @@ export default function TypingGame() {
       {/* コンテンツ */}
       <div className="relative z-10">
         <div className="container mx-auto px-4 py-4 max-w-4xl">
-          <h1 className="text-3xl font-bold text-center mb-4 text-white drop-shadow-lg">
-            タイピングゲーム
-          </h1>
+          <div className="flex justify-between items-center mb-4">
+            <button
+              onClick={() => setShowLeaderboard(true)}
+              className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg text-sm transition-colors"
+            >
+              🏆 ランキング
+            </button>
+            <h1 className="text-3xl font-bold text-white drop-shadow-lg">
+              タイピングゲーム
+            </h1>
+            <div className="w-24"></div> {/* スペーサー */}
+          </div>
 
           {/* ラウンド表示 */}
           <div className="text-center mb-4">
@@ -930,12 +947,20 @@ export default function TypingGame() {
                   </div>
                 </div>
 
-                <button
-                  onClick={resetGame}
-                  className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg text-lg"
-                >
-                  もう一度プレイ
-                </button>
+                <div className="space-y-3">
+                  <button
+                    onClick={() => setShowLeaderboard(true)}
+                    className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-6 rounded-lg text-lg mr-3"
+                  >
+                    🏆 ランキング
+                  </button>
+                  <button
+                    onClick={resetGame}
+                    className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg text-lg"
+                  >
+                    もう一度プレイ
+                  </button>
+                </div>
                 <div className="mt-2 text-sm text-white drop-shadow-lg">
                   💡 スペースキーでも再開できます
                 </div>
@@ -944,6 +969,27 @@ export default function TypingGame() {
           </div>
         </div>
       </div>
+
+      {/* リーダーボード */}
+      <Leaderboard
+        isVisible={showLeaderboard}
+        onClose={() => setShowLeaderboard(false)}
+        currentScore={gameState.score}
+      />
+
+      {/* スコア送信 */}
+      <ScoreSubmission
+        isVisible={showScoreSubmission}
+        score={gameState.score}
+        round={gameState.round}
+        totalTime={gameState.totalTime}
+        onClose={() => setShowScoreSubmission(false)}
+        onSubmitted={() => {
+          // スコア送信後にリーダーボードを表示
+          setShowScoreSubmission(false)
+          setShowLeaderboard(true)
+        }}
+      />
     </div>
   )
 }
