@@ -14,7 +14,41 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  security-check:
+    runs-on: ubuntu-latest
+    name: Security Check
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Run Gitleaks
+      uses: gitleaks/gitleaks-action@v2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Check for secrets in environment files
+      run: |
+        echo "🔍 Checking for potential secrets..."
+        
+        # 危険なパターンをチェック
+        if find . -name "*.env*" -not -path "./.git/*" -not -path "./node_modules/*" -exec grep -l "aws_access_key\|aws_secret\|password.*=\|token.*=" {} \; 2>/dev/null | grep -q .; then
+          echo "⚠️  WARNING: Potential secrets found!"
+          exit 1
+        fi
+        
+        # AWSアクセスキーパターンをチェック
+        if grep -r "AKIA[0-9A-Z]\{16\}" . --exclude-dir=.git --exclude-dir=node_modules 2>/dev/null; then
+          echo "⚠️  WARNING: Potential AWS Access Key found!"
+          exit 1
+        fi
+        
+        echo "✅ Security check passed"
+
   build-and-deploy:
+    needs: security-check
     runs-on: ubuntu-latest
     environment:
       name: github-pages

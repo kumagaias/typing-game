@@ -155,6 +155,37 @@ npm install
 npm run dev
 ```
 
+## 🔒 セキュリティ
+
+### GitHub Actions セキュリティチェック
+
+このプロジェクトには3つのセキュリティワークフローが設定されています：
+
+1. **security-check.yml** - 包括的なセキュリティスキャン
+   - Gitleaks（秘密情報検出）
+   - Semgrep（コードセキュリティ分析）
+   - Trivy（脆弱性スキャン）
+   - カスタムチェック
+
+2. **security-light.yml** - 軽量セキュリティチェック（PR用）
+   - 基本的な秘密情報検出
+   - Terraform設定検証
+   - パッケージ脆弱性チェック
+
+3. **deploy.yml** - デプロイ前セキュリティチェック
+   - セキュリティチェック通過後のみデプロイ実行
+
+### ローカルセキュリティチェック
+
+```bash
+# Gitleaksでスキャン
+brew install gitleaks
+gitleaks detect --source . --verbose
+
+# パッケージ脆弱性チェック
+cd frontend && npm audit
+```
+
 ### 🚀 一括デプロイスクリプト
 
 便利なデプロイスクリプトも用意されています：
