@@ -95,6 +95,8 @@ jobs:
     - name: Update Lambda function
       run: |
         echo "🚀 Updating Lambda function..."
+        
+        # Update Lambda function with new image
         aws lambda update-function-code \
           --function-name ${{ vars.LAMBDA_FUNCTION_NAME }} \
           --image-uri ${{ steps.ecr-repo.outputs.repository-uri }}:${{ github.sha }}
@@ -102,6 +104,10 @@ jobs:
         echo "⏳ Waiting for function update to complete..."
         aws lambda wait function-updated \
           --function-name ${{ vars.LAMBDA_FUNCTION_NAME }}
+        
+        # Verify the update was successful
+        UPDATED_IMAGE=$(aws lambda get-function --function-name ${{ vars.LAMBDA_FUNCTION_NAME }} --query 'Code.ImageUri' --output text)
+        echo "✅ Lambda function updated with image: $UPDATED_IMAGE"
 
     - name: Verify deployment
       run: |

@@ -55,6 +55,16 @@ resource "aws_iam_role_policy" "lambda_policy" {
           var.leaderboard_table_arn,
           "${var.leaderboard_table_arn}/*"
         ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:GetAuthorizationToken",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage"
+        ]
+        Resource = "*"
       }
     ]
   })
@@ -82,7 +92,7 @@ resource "aws_lambda_function" "api" {
   
   timeout = 30
   memory_size = 512
-  architectures = ["arm64"]
+  architectures = ["x86_64"]
 
   environment {
     variables = {
