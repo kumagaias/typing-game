@@ -23,6 +23,11 @@ output "leaderboard_table_name" {
   value       = module.dynamodb.leaderboard_table_name
 }
 
+output "words_table_name" {
+  description = "Words DynamoDB table name"
+  value       = module.dynamodb.words_table_name
+}
+
 output "lambda_function_name" {
   description = "Lambda function name"
   value       = module.lambda.lambda_function_name
