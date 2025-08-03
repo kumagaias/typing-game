@@ -28,6 +28,7 @@ export interface ApiResponse<T> {
   data?: T;
   message?: string;
   leaderboard?: T;
+  words?: T;
 }
 
 class ApiClient {
