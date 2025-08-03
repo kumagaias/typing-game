@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -36,6 +37,14 @@ type LeaderboardItem struct {
 	Score      int    `dynamodbav:"score" json:"score"`
 	Round      int    `dynamodbav:"round" json:"round"`
 	Rank       int    `dynamodbav:"rank" json:"rank"`
+}
+
+type WordItem struct {
+	Category string `dynamodbav:"category" json:"category"`
+	WordID   string `dynamodbav:"word_id" json:"word_id"`
+	Word     string `dynamodbav:"word" json:"word"`
+	Round    int    `dynamodbav:"round" json:"round"`
+	Type     string `dynamodbav:"type" json:"type"` // "normal", "bonus", "debuff"
 }
 
 func init() {
@@ -81,6 +90,7 @@ func setupRoutes(r *gin.Engine) {
 		{
 			game.POST("/score", submitScore)
 			game.GET("/leaderboard", getLeaderboard)
+			game.GET("/words/:round", getWords)
 		}
 	}
 	
@@ -95,6 +105,7 @@ func setupRoutes(r *gin.Engine) {
 		{
 			stageGame.POST("/score", submitScore)
 			stageGame.GET("/leaderboard", getLeaderboard)
+			stageGame.GET("/words/:round", getWords)
 		}
 	}
 }
@@ -177,6 +188,27 @@ func getLeaderboard(c *gin.Context) {
 	
 	c.JSON(http.StatusOK, gin.H{
 		"leaderboard": leaderboard,
+	})
+}
+
+func getWords(c *gin.Context) {
+	roundStr := c.Param("round")
+	round, err := strconv.Atoi(roundStr)
+	if err != nil || round < 1 || round > 5 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid round parameter"})
+		return
+	}
+
+	words, err := fetchWords(round)
+	if err != nil {
+		log.Printf("Failed to fetch words for round %d: %v", round, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch words"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"words": words,
+		"round": round,
 	})
 }
 
@@ -308,6 +340,39 @@ func fetchLeaderboard() ([]LeaderboardItem, error) {
 	}
 
 	return items, nil
+}
+
+func fetchWords(round int) ([]WordItem, error) {
+	wordsTable := os.Getenv("WORDS_TABLE_NAME")
+	if wordsTable == "" {
+		return nil, fmt.Errorf("WORDS_TABLE_NAME environment variable not set")
+	}
+
+	// GSIを使用してラウンド別に単語を取得
+	result, err := dynamoClient.Query(context.TODO(), &dynamodb.QueryInput{
+		TableName: aws.String(wordsTable),
+		IndexName: aws.String("RoundIndex"),
+		KeyConditionExpression: aws.String("#round = :round"),
+		ExpressionAttributeNames: map[string]string{
+			"#round": "round",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":round": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", round)},
+		},
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to query words table: %w", err)
+	}
+
+	var words []WordItem
+	err = attributevalue.UnmarshalListOfMaps(result.Items, &words)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal words: %w", err)
+	}
+
+	log.Printf("Fetched %d words for round %d", len(words), round)
+	return words, nil
 }
 
 func main() {

@@ -57,3 +57,40 @@ resource "aws_dynamodb_table" "leaderboard" {
     Project     = var.project_name
   }
 }
+
+# DynamoDB Table for Words
+resource "aws_dynamodb_table" "words" {
+  name           = "${var.project_name}-words-${var.environment}"
+  billing_mode   = "PAY_PER_REQUEST"
+  hash_key       = "category"
+  range_key      = "word_id"
+
+  attribute {
+    name = "category"
+    type = "S"
+  }
+
+  attribute {
+    name = "word_id"
+    type = "S"
+  }
+
+  attribute {
+    name = "round"
+    type = "N"
+  }
+
+  # Global Secondary Index for round-based queries
+  global_secondary_index {
+    name     = "RoundIndex"
+    hash_key = "round"
+    range_key = "word_id"
+    projection_type = "ALL"
+  }
+
+  tags = {
+    Name        = "${var.project_name}-words-${var.environment}"
+    Environment = var.environment
+    Project     = var.project_name
+  }
+}

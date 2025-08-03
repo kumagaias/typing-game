@@ -16,6 +16,14 @@ export interface LeaderboardEntry {
   round: number;
 }
 
+export interface WordItem {
+  category: string;
+  word_id: string;
+  word: string;
+  round: number;
+  type: 'normal' | 'bonus' | 'debuff';
+}
+
 export interface ApiResponse<T> {
   data?: T;
   message?: string;
@@ -82,6 +90,10 @@ class ApiClient {
 
   async getLeaderboard(): Promise<ApiResponse<LeaderboardEntry[]>> {
     return this.request('/api/game/leaderboard');
+  }
+
+  async getWords(round: number): Promise<ApiResponse<WordItem[]>> {
+    return this.request(`/api/game/words/${round}`);
   }
 }
 

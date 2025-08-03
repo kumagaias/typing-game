@@ -98,6 +98,7 @@ resource "aws_lambda_function" "api" {
     variables = {
       SCORES_TABLE_NAME      = var.scores_table_name
       LEADERBOARD_TABLE_NAME = var.leaderboard_table_name
+      WORDS_TABLE_NAME       = var.words_table_name
       ENVIRONMENT           = var.environment
     }
   }

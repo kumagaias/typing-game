@@ -57,6 +57,8 @@ module "lambda" {
   scores_table_arn = module.dynamodb.scores_table_arn
   leaderboard_table_name = module.dynamodb.leaderboard_table_name
   leaderboard_table_arn = module.dynamodb.leaderboard_table_arn
+  words_table_name = module.dynamodb.words_table_name
+  words_table_arn = module.dynamodb.words_table_arn
 }
 
 # API Gateway Module

@@ -17,3 +17,13 @@ output "leaderboard_table_arn" {
   description = "ARN of the leaderboard DynamoDB table"
   value       = aws_dynamodb_table.leaderboard.arn
 }
+
+output "words_table_name" {
+  description = "Name of the words DynamoDB table"
+  value       = aws_dynamodb_table.words.name
+}
+
+output "words_table_arn" {
+  description = "ARN of the words DynamoDB table"
+  value       = aws_dynamodb_table.words.arn
+}

@@ -8,6 +8,7 @@ import EnemyDamageEffect from './EnemyDamageEffect'
 import ScoreEffect from './ScoreEffect'
 import Leaderboard from './Leaderboard'
 import ScoreSubmission from './ScoreSubmission'
+import { apiClient, WordItem } from '../lib/api'
 
 // ラウンド別の単語リスト（難易度アップ）
 const FOOD_WORDS = {
@@ -127,6 +128,8 @@ interface GameState {
   roundStartTime: number
   totalTime: number
   roundStartScore: number
+  availableWords: WordItem[]
+  wordsLoading: boolean
 }
 
 interface EffectState {
@@ -159,7 +162,9 @@ export default function TypingGame() {
     maxCombo: 0,
     roundStartTime: 0,
     totalTime: 1, // 最小1秒
-    roundStartScore: 0
+    roundStartScore: 0,
+    availableWords: [],
+    wordsLoading: false
   })
 
   const [effectState, setEffectState] = useState<EffectState>({
@@ -197,16 +202,56 @@ export default function TypingGame() {
     return Math.floor(baseScore + comboBonus + specialBonus + timeBonusScore)
   }
 
+  // 単語を取得する関数
+  const fetchWordsForRound = async (round: number) => {
+    setGameState(prev => ({ ...prev, wordsLoading: true }))
+    try {
+      const response = await apiClient.getWords(round)
+      const words = response.words || []
+      setGameState(prev => ({ 
+        ...prev, 
+        availableWords: words,
+        wordsLoading: false 
+      }))
+      console.log(`Loaded ${words.length} words for round ${round}`)
+    } catch (error) {
+      console.error(`Failed to fetch words for round ${round}:`, error)
+      // フォールバック: ハードコードされた単語を使用
+      const fallbackWords = FOOD_WORDS[round as keyof typeof FOOD_WORDS] || []
+      const wordItems: WordItem[] = fallbackWords.map((word, index) => ({
+        category: 'food',
+        word_id: `fallback_${round}_${index}`,
+        word: word,
+        round: round,
+        type: 'normal' as const
+      }))
+      setGameState(prev => ({ 
+        ...prev, 
+        availableWords: wordItems,
+        wordsLoading: false 
+      }))
+    }
+  }
+
   // ランダムな単語を生成（特殊効果付き、重複回避）
-  const generateRandomWord = useCallback((round: number, lastWord: string = '') => {
-    const roundWords = FOOD_WORDS[round as keyof typeof FOOD_WORDS] || FOOD_WORDS[3] // フォールバック
-    let selectedWord: string
+  const generateRandomWord = useCallback((lastWord: string = '') => {
+    if (gameState.availableWords.length === 0) {
+      console.warn('No words available for current round')
+      return { word: 'えらー', type: 'normal' as const }
+    }
+
+    // 通常の単語と特殊単語を分ける
+    const normalWords = gameState.availableWords.filter(w => w.type === 'normal')
+    const bonusWords = gameState.availableWords.filter(w => w.type === 'bonus')
+    const debuffWords = gameState.availableWords.filter(w => w.type === 'debuff')
+    
+    let selectedWord: WordItem
     let wordType: 'normal' | 'bonus' | 'debuff' = 'normal'
 
     // 20%の確率で特殊単語
-    if (Math.random() < 0.2) {
+    if (Math.random() < 0.2 && (bonusWords.length > 0 || debuffWords.length > 0)) {
       const isBonus = Math.random() < 0.6 // 60%でボーナス、40%でデバフ
-      const specialWords = isBonus ? SPECIAL_WORDS.bonus : SPECIAL_WORDS.debuff
+      const specialWords = isBonus ? bonusWords : debuffWords
       wordType = isBonus ? 'bonus' : 'debuff'
 
       // 特殊単語から選択（重複回避）
@@ -215,43 +260,46 @@ export default function TypingGame() {
         const randomIndex = Math.floor(Math.random() * specialWords.length)
         selectedWord = specialWords[randomIndex]
         attempts++
-      } while (selectedWord === lastWord && attempts < 10)
+      } while (selectedWord.word === lastWord && attempts < 10)
     } else {
       // 通常単語から選択（重複回避）
       let attempts = 0
       do {
-        const randomIndex = Math.floor(Math.random() * roundWords.length)
-        selectedWord = roundWords[randomIndex]
+        const randomIndex = Math.floor(Math.random() * normalWords.length)
+        selectedWord = normalWords[randomIndex]
         attempts++
-      } while (selectedWord === lastWord && attempts < 10)
+      } while (selectedWord.word === lastWord && attempts < 10)
     }
 
     return {
-      word: selectedWord,
+      word: selectedWord.word,
       type: wordType
     }
-  }, [])
+  }, [gameState.availableWords])
 
   // ゲーム開始
   const startRound = useCallback(() => {
-    setGameState(prev => {
-      const timeLimit = ENEMY_DATA[prev.round as keyof typeof ENEMY_DATA].timeLimit
-      const wordData = generateRandomWord(prev.round, prev.lastWord)
-      const newWord = typeof wordData === 'string' ? wordData : wordData.word
-      return {
-        ...prev,
-        currentWord: newWord,
-        userInput: '',
-        timeLeft: timeLimit,
-        gameStatus: 'playing',
-        wordsCompleted: 0,
-        combo: 0,
-        isSpecialWord: typeof wordData !== 'string',
-        specialType: typeof wordData === 'string' ? 'normal' : wordData.type,
-        lastWord: newWord,
-        roundStartTime: Date.now(),
-        roundStartScore: prev.score
-      }
+    // まず単語を取得してからゲームを開始
+    fetchWordsForRound(gameState.round).then(() => {
+      setGameState(prev => {
+        const timeLimit = ENEMY_DATA[prev.round as keyof typeof ENEMY_DATA].timeLimit
+        const wordData = generateRandomWord(prev.lastWord)
+        const newWord = typeof wordData === 'string' ? wordData : wordData.word
+        return {
+          ...prev,
+          currentWord: newWord,
+          userInput: '',
+          timeLeft: timeLimit,
+          gameStatus: 'playing',
+          wordsCompleted: 0,
+          combo: 0,
+          isSpecialWord: typeof wordData !== 'string',
+          specialType: typeof wordData === 'string' ? 'normal' : wordData.type,
+          lastWord: newWord,
+          roundStartTime: Date.now(),
+          roundStartScore: prev.score
+        }
+      })
     })
 
     // 入力フィールドにフォーカス
@@ -435,7 +483,7 @@ export default function TypingGame() {
         }, 1500)
       } else {
         // 次の単語へ
-        const wordData = generateRandomWord(gameState.round, gameState.currentWord)
+        const wordData = generateRandomWord(gameState.currentWord)
         const newWord = typeof wordData === 'string' ? wordData : wordData.word
         setGameState(prev => ({
           ...prev,

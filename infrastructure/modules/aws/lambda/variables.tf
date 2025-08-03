@@ -36,3 +36,13 @@ variable "leaderboard_table_arn" {
   description = "ARN of the leaderboard DynamoDB table"
   type        = string
 }
+
+variable "words_table_name" {
+  description = "Name of the words DynamoDB table"
+  type        = string
+}
+
+variable "words_table_arn" {
+  description = "ARN of the words DynamoDB table"
+  type        = string
+}
