@@ -119,8 +119,10 @@ func submitScore(c *gin.Context) {
 		return
 	}
 	
-	// 入力検証
-	if len(scoreData.PlayerName) > 20 || len(scoreData.PlayerName) < 1 {
+	// 入力検証（文字数で計算、UTF-8対応）
+	playerNameRunes := []rune(scoreData.PlayerName)
+	if len(playerNameRunes) > 20 || len(playerNameRunes) < 1 {
+		log.Printf("Player name validation failed: '%s' has %d characters (bytes: %d)", scoreData.PlayerName, len(playerNameRunes), len(scoreData.PlayerName))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Player name must be 1-20 characters"})
 		return
 	}
