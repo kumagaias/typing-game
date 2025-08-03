@@ -36,6 +36,17 @@ typing-game/
 
 ## 🚀 デプロイ方法
 
+### 🔄 自動デプロイ（推奨）
+
+GitHub Actionsによる自動デプロイが設定されています：
+
+- **フロントエンド**: `frontend/` ディレクトリの変更で自動デプロイ
+- **バックエンド**: `backend/` または `infrastructure/` ディレクトリの変更で自動デプロイ
+
+詳細な設定方法は [DEPLOYMENT.md](./DEPLOYMENT.md) を参照してください。
+
+### 📋 手動デプロイ
+
 ### 📋 前提条件
 
 - AWS CLI設定済み

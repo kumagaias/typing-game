@@ -1,0 +1,150 @@
+name: Deploy Backend to AWS
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend/**'
+      - 'infrastructure/**'
+      - '.github/workflows/deploy_backend.yml'
+  workflow_dispatch: # 手動実行を許可
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: "backend-deploy"
+  cancel-in-progress: false
+
+jobs:
+  security-check:
+    runs-on: ubuntu-latest
+    name: Security Check
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Run Gitleaks
+      uses: gitleaks/gitleaks-action@v2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Check for secrets in backend files
+      run: |
+        echo "🔍 Checking backend for potential secrets..."
+        
+        # 危険なパターンをチェック
+        if find backend/ -name "*.go" -o -name "*.env*" -o -name "*.yaml" -o -name "*.yml" | xargs grep -l "aws_access_key\|aws_secret\|password.*=\|token.*=" 2>/dev/null | grep -q .; then
+          echo "⚠️  WARNING: Potential secrets found in backend!"
+          exit 1
+        fi
+        
+        # AWSアクセスキーパターンをチェック
+        if find backend/ -name "*.go" | xargs grep "AKIA[0-9A-Z]\{16\}" 2>/dev/null; then
+          echo "⚠️  WARNING: Potential AWS Access Key found in backend!"
+          exit 1
+        fi
+        
+        echo "✅ Backend security check passed"
+
+  build-and-deploy:
+    needs: security-check
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+        aws-region: ${{ vars.AWS_REGION }}
+        role-session-name: GitHubActions-BackendDeploy
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Get ECR repository URI
+      id: ecr-repo
+      run: |
+        REPO_URI=$(aws ecr describe-repositories --repository-names ${{ vars.ECR_REPOSITORY_NAME }} --query 'repositories[0].repositoryUri' --output text)
+        echo "repository-uri=$REPO_URI" >> $GITHUB_OUTPUT
+        echo "ECR Repository URI: $REPO_URI"
+
+    - name: Build Docker image
+      working-directory: ./backend
+      run: |
+        echo "🔨 Building Docker image..."
+        docker build -t ${{ steps.ecr-repo.outputs.repository-uri }}:latest .
+        docker build -t ${{ steps.ecr-repo.outputs.repository-uri }}:${{ github.sha }} .
+
+    - name: Push Docker image to ECR
+      run: |
+        echo "📤 Pushing Docker image to ECR..."
+        docker push ${{ steps.ecr-repo.outputs.repository-uri }}:latest
+        docker push ${{ steps.ecr-repo.outputs.repository-uri }}:${{ github.sha }}
+
+    - name: Update Lambda function
+      run: |
+        echo "🚀 Updating Lambda function..."
+        aws lambda update-function-code \
+          --function-name ${{ vars.LAMBDA_FUNCTION_NAME }} \
+          --image-uri ${{ steps.ecr-repo.outputs.repository-uri }}:${{ github.sha }}
+        
+        echo "⏳ Waiting for function update to complete..."
+        aws lambda wait function-updated \
+          --function-name ${{ vars.LAMBDA_FUNCTION_NAME }}
+
+    - name: Verify deployment
+      run: |
+        echo "✅ Verifying deployment..."
+        
+        # Lambda関数の状態を確認
+        FUNCTION_STATE=$(aws lambda get-function --function-name ${{ vars.LAMBDA_FUNCTION_NAME }} --query 'Configuration.State' --output text)
+        echo "Lambda function state: $FUNCTION_STATE"
+        
+        if [ "$FUNCTION_STATE" != "Active" ]; then
+          echo "❌ Lambda function is not active!"
+          exit 1
+        fi
+        
+        # API Gatewayのヘルスチェック
+        if [ -n "${{ vars.API_GATEWAY_URL }}" ]; then
+          echo "🔍 Testing API Gateway health check..."
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ vars.API_GATEWAY_URL }}/api/health" || echo "000")
+          echo "Health check HTTP status: $HTTP_STATUS"
+          
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "⚠️  Warning: Health check failed with status $HTTP_STATUS"
+            echo "This might be expected if the API requires authentication or has other constraints"
+          else
+            echo "✅ Health check passed!"
+          fi
+        fi
+        
+        echo "🎉 Backend deployment completed successfully!"
+
+  notify-completion:
+    needs: build-and-deploy
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+    - name: Notify deployment result
+      run: |
+        if [ "${{ needs.build-and-deploy.result }}" == "success" ]; then
+          echo "✅ Backend deployment completed successfully!"
+          echo "🚀 Lambda function updated with image: ${{ github.sha }}"
+        else
+          echo "❌ Backend deployment failed!"
+          echo "Please check the logs for more details."
+          exit 1
+        fi

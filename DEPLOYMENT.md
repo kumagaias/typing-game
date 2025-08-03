@@ -1,218 +1,157 @@
-# Typing Game デプロイ手順
+# デプロイメント設定ガイド
 
-## 前提条件
+このドキュメントでは、タイピングゲームのフロントエンドとバックエンドのデプロイメント設定について説明します。
 
-- AWS CLI設定済み
-- Docker インストール済み
-- Terraform >= 1.0
-- Go >= 1.21
+## GitHub Environment設定
 
-## 1. インフラストラクチャのデプロイ
+### 1. Production Environment の作成
 
-### Step 1: S3バケット作成（初回のみ）
+1. GitHubリポジトリの **Settings** → **Environments** に移動
+2. **New environment** をクリック
+3. 環境名に `production` を入力
+4. **Configure environment** をクリック
 
-```bash
-# S3バケットの作成
-aws s3 mb s3://typing-game-tf-state --region ap-northeast-1
+### 2. Environment Variables の設定
 
-# バケットのバージョニングを有効化
-aws s3api put-bucket-versioning \
-  --bucket typing-game-tf-state \
-  --versioning-configuration Status=Enabled
+`production` 環境に以下の変数を設定してください：
 
-# バケットの暗号化を有効化
-aws s3api put-bucket-encryption \
-  --bucket typing-game-tf-state \
-  --server-side-encryption-configuration '{
-    "Rules": [
-      {
-        "ApplyServerSideEncryptionByDefault": {
-          "SSEAlgorithm": "AES256"
+#### フロントエンド用変数
+| 変数名 | 説明 | 例 |
+|--------|------|-----|
+| `NEXT_PUBLIC_API_URL` | APIのベースURL | `https://your-api-id.execute-api.ap-northeast-1.amazonaws.com/production` |
+
+#### バックエンド用変数
+| 変数名 | 説明 | 例 |
+|--------|------|-----|
+| `AWS_REGION` | AWSリージョン | `ap-northeast-1` |
+| `AWS_ROLE_ARN` | GitHub ActionsがAssumeするIAMロールのARN | `arn:aws:iam::123456789012:role/GitHubActionsRole` |
+| `ECR_REPOSITORY_NAME` | ECRリポジトリ名 | `typing-game-backend` |
+| `LAMBDA_FUNCTION_NAME` | Lambda関数名 | `typing-game-production-lambda` |
+| `API_GATEWAY_URL` | API GatewayのURL（ヘルスチェック用） | `https://your-api-id.execute-api.ap-northeast-1.amazonaws.com/production` |
+
+## AWS設定
+
+### 1. IAMロールの作成
+
+GitHub ActionsがAWSリソースにアクセスするためのIAMロールを作成します。
+
+#### 信頼関係ポリシー
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::YOUR_ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+        },
+        "StringLike": {
+          "token.actions.githubusercontent.com:sub": "repo:YOUR_GITHUB_USERNAME/YOUR_REPO_NAME:*"
         }
       }
-    ]
-  }'
-
-# パブリックアクセスをブロック
-aws s3api put-public-access-block \
-  --bucket typing-game-tf-state \
-  --public-access-block-configuration \
-  BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+    }
+  ]
+}
 ```
 
-### Step 2: Terraformでインフラ作成
-
-```bash
-cd infrastructure/environments/production
-terraform init
-terraform plan
-terraform apply
+#### 権限ポリシー
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ecr:GetAuthorizationToken",
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:BatchGetImage",
+        "ecr:PutImage",
+        "ecr:InitiateLayerUpload",
+        "ecr:UploadLayerPart",
+        "ecr:CompleteLayerUpload",
+        "ecr:DescribeRepositories"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "lambda:UpdateFunctionCode",
+        "lambda:GetFunction",
+        "lambda:UpdateFunctionConfiguration"
+      ],
+      "Resource": "arn:aws:lambda:*:*:function:typing-game-*"
+    }
+  ]
+}
 ```
 
-## 2. バックエンドのデプロイ
+### 2. OIDC プロバイダーの設定
 
-### Step 1: ECRリポジトリURLを取得
+GitHub ActionsがAWSにアクセスするためのOIDCプロバイダーを設定します。
 
-```bash
-# Terraformの出力からECRリポジトリURLを取得
-cd infrastructure/environments/production
-ECR_REPO_URL=$(terraform output -raw ecr_repository_url)
-echo $ECR_REPO_URL
-```
+1. AWS IAMコンソールで **Identity providers** に移動
+2. **Add provider** をクリック
+3. 以下の設定を入力：
+   - **Provider type**: OpenID Connect
+   - **Provider URL**: `https://token.actions.githubusercontent.com`
+   - **Audience**: `sts.amazonaws.com`
 
-### Step 2: Dockerイメージをビルド・プッシュ
+## デプロイメントワークフロー
 
-```bash
-# ECRにログイン
-aws ecr get-login-password --region ap-northeast-1 | docker login --username AWS --password-stdin $ECR_REPO_URL
+### フロントエンドデプロイ
+- **トリガー**: `frontend/` ディレクトリの変更
+- **デプロイ先**: GitHub Pages
+- **ワークフロー**: `.github/workflows/deploy_frontend.yml`
 
-# Dockerイメージをビルド
-cd backend
-docker build -t typing-game-backend .
+### バックエンドデプロイ
+- **トリガー**: `backend/` または `infrastructure/` ディレクトリの変更
+- **デプロイ先**: AWS Lambda (ECR経由)
+- **ワークフロー**: `.github/workflows/deploy_backend.yml`
 
-# イメージにタグ付け
-docker tag typing-game-backend:latest $ECR_REPO_URL:latest
+## 手動デプロイ
 
-# ECRにプッシュ
-docker push $ECR_REPO_URL:latest
-```
-
-### Step 3: Lambda関数を更新
-
-```bash
-# Lambda関数を最新のイメージで更新
-LAMBDA_FUNCTION_NAME=$(terraform output -raw lambda_function_name)
-aws lambda update-function-code \
-  --function-name $LAMBDA_FUNCTION_NAME \
-  --image-uri $ECR_REPO_URL:latest
-```
-
-## 3. フロントエンドのデプロイ
-
-### GitHub Pagesへのデプロイ
-
-```bash
-cd frontend
-npm run build
-npm run export
-
-# GitHub Pagesにデプロイ（既存の設定を使用）
-git add .
-git commit -m "Deploy frontend"
-git push origin main
-```
-
-## 4. 動作確認
-
-### API Gateway URLを取得
-
-```bash
-cd infrastructure/environments/production
-API_GATEWAY_URL=$(terraform output -raw api_gateway_url)
-echo "API Gateway URL: $API_GATEWAY_URL"
-```
-
-### APIテスト
-
-```bash
-# Health check
-curl $API_GATEWAY_URL/api/health
-
-# スコア投稿テスト
-curl -X POST $API_GATEWAY_URL/api/game/score \
-  -H "Content-Type: application/json" \
-  -d '{"player_name":"TestPlayer","score":10000,"round":3,"time":180}'
-
-# リーダーボード取得
-curl $API_GATEWAY_URL/api/game/leaderboard
-```
-
-## 5. 自動デプロイスクリプト
-
-便利なデプロイスクリプトを作成：
-
-```bash
-#!/bin/bash
-# deploy.sh
-
-set -e
-
-echo "🚀 Starting deployment..."
-
-# 1. インフラデプロイ
-echo "📦 Deploying infrastructure..."
-cd infrastructure/environments/production
-terraform apply -auto-approve
-
-# 2. ECRリポジトリURL取得
-ECR_REPO_URL=$(terraform output -raw ecr_repository_url)
-LAMBDA_FUNCTION_NAME=$(terraform output -raw lambda_function_name)
-
-# 3. バックエンドデプロイ
-echo "🐳 Building and pushing Docker image..."
-cd ../../../backend
-
-# ECRログイン
-aws ecr get-login-password --region ap-northeast-1 | docker login --username AWS --password-stdin $ECR_REPO_URL
-
-# ビルド・プッシュ
-docker build -t typing-game-backend .
-docker tag typing-game-backend:latest $ECR_REPO_URL:latest
-docker push $ECR_REPO_URL:latest
-
-# Lambda更新
-echo "⚡ Updating Lambda function..."
-aws lambda update-function-code \
-  --function-name $LAMBDA_FUNCTION_NAME \
-  --image-uri $ECR_REPO_URL:latest
-
-# 4. フロントエンドデプロイ
-echo "🌐 Deploying frontend..."
-cd ../frontend
-npm run build
-npm run export
-
-echo "✅ Deployment completed!"
-echo "API Gateway URL: $(cd ../infrastructure/environments/production && terraform output -raw api_gateway_url)"
-```
-
-## 6. 環境変数の設定
-
-フロントエンドでAPI Gateway URLを使用する場合：
-
-```bash
-# frontend/.env.local
-NEXT_PUBLIC_API_URL=https://your-api-gateway-url.execute-api.ap-northeast-1.amazonaws.com/production
-```
+### バックエンドの手動デプロイ
+1. GitHubリポジトリの **Actions** タブに移動
+2. **Deploy Backend to AWS** ワークフローを選択
+3. **Run workflow** をクリック
+4. ブランチを選択して **Run workflow** を実行
 
 ## トラブルシューティング
 
 ### よくある問題
 
-1. **ECRプッシュエラー**
-   ```bash
-   # ECRリポジトリが存在することを確認
-   aws ecr describe-repositories --repository-names typing-game-production
-   ```
+1. **AWS認証エラー**
+   - IAMロールのARNが正しく設定されているか確認
+   - 信頼関係ポリシーのリポジトリ名が正しいか確認
 
-2. **Lambda更新エラー**
-   ```bash
-   # Lambda関数の状態を確認
-   aws lambda get-function --function-name typing-game-api-production
-   ```
+2. **ECRプッシュエラー**
+   - ECRリポジトリが存在するか確認
+   - IAMロールにECR権限があるか確認
 
-3. **API Gateway接続エラー**
-   ```bash
-   # API Gateway URLを確認
-   aws apigatewayv2 get-apis
-   ```
+3. **Lambda更新エラー**
+   - Lambda関数名が正しいか確認
+   - IAMロールにLambda権限があるか確認
 
-### ログの確認
+### ログの確認方法
+1. GitHubリポジトリの **Actions** タブでワークフロー実行を確認
+2. 失敗したジョブをクリックして詳細ログを確認
+3. AWSコンソールでLambda関数のログを確認（CloudWatch Logs）
 
-```bash
-# Lambda関数のログ
-aws logs describe-log-groups --log-group-name-prefix "/aws/lambda/typing-game"
+## セキュリティ
 
-# API Gatewayのログ
-aws logs describe-log-groups --log-group-name-prefix "/aws/apigateway/typing-game"
-```
+- すべてのワークフローでGitleaksによるシークレットスキャンを実行
+- AWS認証情報はGitHub Secretsではなく、IAMロールとOIDCを使用
+- 最小権限の原則に従ってIAM権限を設定
+
+## 参考リンク
+
+- [GitHub Actions でのAWS認証](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services)
+- [AWS Lambda コンテナイメージ](https://docs.aws.amazon.com/lambda/latest/dg/images-create.html)
+- [Amazon ECR ユーザーガイド](https://docs.aws.amazon.com/ecr/latest/userguide/what-is-ecr.html)

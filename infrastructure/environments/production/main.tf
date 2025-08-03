@@ -69,3 +69,12 @@ module "api_gateway" {
   lambda_function_name = module.lambda.lambda_function_name
   lambda_invoke_arn = module.lambda.lambda_invoke_arn
 }
+
+# GitHub Actions IAM Module
+module "github_actions_iam" {
+  source = "../../modules/aws/github-actions-iam"
+  
+  environment = "production"
+  project_name = var.project_name
+  github_repository = var.github_repository
+}

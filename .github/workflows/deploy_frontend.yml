@@ -5,7 +5,7 @@ on:
     branches: [ main ]
     paths:
       - 'frontend/**'
-      - '.github/workflows/deploy.yml'
+      - '.github/workflows/deploy_frontend.yml'
 
 permissions:
   contents: read
