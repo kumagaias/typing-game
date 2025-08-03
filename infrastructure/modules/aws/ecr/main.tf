@@ -40,6 +40,22 @@ resource "aws_ecr_repository_policy" "main" {
           "ecr:UploadLayerPart",
           "ecr:CompleteLayerUpload"
         ]
+      },
+      {
+        Sid    = "LambdaECRImageRetrievalPolicy"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+        Action = [
+          "ecr:BatchGetImage",
+          "ecr:GetDownloadUrlForLayer"
+        ]
+        Condition = {
+          StringLike = {
+            "aws:sourceArn" = "arn:aws:lambda:*:${data.aws_caller_identity.current.account_id}:function:*"
+          }
+        }
       }
     ]
   })
