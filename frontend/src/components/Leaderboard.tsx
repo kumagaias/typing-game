@@ -27,13 +27,12 @@ export default function Leaderboard({ isVisible, onClose, currentScore }: Leader
       const response = await apiClient.getLeaderboard()
       console.log('Leaderboard response:', response)
       
-      // データの検証と修正
-      const validatedLeaderboard = (response.leaderboard || []).map(entry => ({
-        ...entry,
-        score: entry.score || 0,
-        rank: entry.rank || 0,
-        round: entry.round || 1,
-        player_name: entry.player_name || 'Unknown'
+      // データの検証と修正（バックエンドの大文字フィールド名に対応）
+      const validatedLeaderboard = (response.leaderboard || []).map((entry: any) => ({
+        score: entry.score || entry.Score || 0,
+        rank: entry.rank || entry.Rank || 0,
+        round: entry.round || entry.Round || 1,
+        player_name: entry.player_name || entry.PlayerName || 'Unknown'
       }))
       
       setLeaderboard(validatedLeaderboard)

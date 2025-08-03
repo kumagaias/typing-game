@@ -32,10 +32,10 @@ type ScoreItem struct {
 }
 
 type LeaderboardItem struct {
-	PlayerName string `dynamodbav:"player_name"`
-	Score      int    `dynamodbav:"score"`
-	Round      int    `dynamodbav:"round"`
-	Rank       int    `dynamodbav:"rank"`
+	PlayerName string `dynamodbav:"player_name" json:"player_name"`
+	Score      int    `dynamodbav:"score" json:"score"`
+	Round      int    `dynamodbav:"round" json:"round"`
+	Rank       int    `dynamodbav:"rank" json:"rank"`
 }
 
 func init() {
@@ -170,6 +170,8 @@ func getLeaderboard(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch leaderboard"})
 		return
 	}
+	
+	log.Printf("Returning leaderboard data: %+v", leaderboard)
 	
 	c.JSON(http.StatusOK, gin.H{
 		"leaderboard": leaderboard,
