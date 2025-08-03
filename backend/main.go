@@ -2,19 +2,50 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/awslabs/aws-lambda-go-api-proxy/gin"
 	"github.com/gin-gonic/gin"
 )
 
 var ginLambda *ginadapter.GinLambda
+var dynamoClient *dynamodb.Client
+
+type ScoreItem struct {
+	PlayerName string `dynamodbav:"player_name"`
+	Score      int    `dynamodbav:"score"`
+	Round      int    `dynamodbav:"round"`
+	Time       int    `dynamodbav:"time"`
+	Timestamp  string `dynamodbav:"timestamp"`
+	ScoreType  string `dynamodbav:"score_type"`
+}
+
+type LeaderboardItem struct {
+	PlayerName string `dynamodbav:"player_name"`
+	Score      int    `dynamodbav:"score"`
+	Round      int    `dynamodbav:"round"`
+	Rank       int    `dynamodbav:"rank"`
+}
 
 func init() {
+	// Initialize DynamoDB client
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		log.Fatalf("Failed to load AWS config: %v", err)
+	}
+	dynamoClient = dynamodb.NewFromConfig(cfg)
+
 	// Gin router setup
 	r := gin.Default()
 	
@@ -109,8 +140,22 @@ func submitScore(c *gin.Context) {
 		return
 	}
 	
-	// TODO: Save to DynamoDB
-	log.Printf("Score submitted: %+v", scoreData)
+	// Save to DynamoDB
+	err := saveScore(scoreData.PlayerName, scoreData.Score, scoreData.Round, scoreData.Time)
+	if err != nil {
+		log.Printf("Failed to save score: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save score"})
+		return
+	}
+
+	// Update leaderboard
+	err = updateLeaderboard(scoreData.PlayerName, scoreData.Score, scoreData.Round)
+	if err != nil {
+		log.Printf("Failed to update leaderboard: %v", err)
+		// Continue even if leaderboard update fails
+	}
+	
+	log.Printf("Score submitted successfully: %+v", scoreData)
 	
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Score submitted successfully",
@@ -119,11 +164,11 @@ func submitScore(c *gin.Context) {
 }
 
 func getLeaderboard(c *gin.Context) {
-	// TODO: Get from DynamoDB
-	leaderboard := []gin.H{
-		{"rank": 1, "player_name": "Player1", "score": 15000, "round": 5},
-		{"rank": 2, "player_name": "Player2", "score": 12000, "round": 4},
-		{"rank": 3, "player_name": "Player3", "score": 10000, "round": 3},
+	leaderboard, err := fetchLeaderboard()
+	if err != nil {
+		log.Printf("Failed to fetch leaderboard: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch leaderboard"})
+		return
 	}
 	
 	c.JSON(http.StatusOK, gin.H{
@@ -133,6 +178,129 @@ func getLeaderboard(c *gin.Context) {
 
 func Handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	return ginLambda.ProxyWithContext(ctx, req)
+}
+
+// DynamoDB operations
+func saveScore(playerName string, score, round, gameTime int) error {
+	scoresTable := os.Getenv("SCORES_TABLE_NAME")
+	if scoresTable == "" {
+		return fmt.Errorf("SCORES_TABLE_NAME environment variable not set")
+	}
+
+	item := ScoreItem{
+		PlayerName: playerName,
+		Score:      score,
+		Round:      round,
+		Time:       gameTime,
+		Timestamp:  fmt.Sprintf("%d", time.Now().Unix()),
+		ScoreType:  "game", // GSI用の固定値
+	}
+
+	av, err := attributevalue.MarshalMap(item)
+	if err != nil {
+		return fmt.Errorf("failed to marshal score item: %w", err)
+	}
+
+	_, err = dynamoClient.PutItem(context.TODO(), &dynamodb.PutItemInput{
+		TableName: aws.String(scoresTable),
+		Item:      av,
+	})
+
+	return err
+}
+
+func updateLeaderboard(playerName string, score, round int) error {
+	leaderboardTable := os.Getenv("LEADERBOARD_TABLE_NAME")
+	if leaderboardTable == "" {
+		return fmt.Errorf("LEADERBOARD_TABLE_NAME environment variable not set")
+	}
+
+	// Check if player already exists
+	getResult, err := dynamoClient.GetItem(context.TODO(), &dynamodb.GetItemInput{
+		TableName: aws.String(leaderboardTable),
+		Key: map[string]types.AttributeValue{
+			"player_name": &types.AttributeValueMemberS{Value: playerName},
+		},
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to get existing leaderboard entry: %w", err)
+	}
+
+	// Update only if new score is higher
+	shouldUpdate := true
+	if getResult.Item != nil {
+		var existingItem LeaderboardItem
+		err = attributevalue.UnmarshalMap(getResult.Item, &existingItem)
+		if err == nil && existingItem.Score >= score {
+			shouldUpdate = false
+		}
+	}
+
+	if shouldUpdate {
+		item := LeaderboardItem{
+			PlayerName: playerName,
+			Score:      score,
+			Round:      round,
+			Rank:       0, // Will be calculated when fetching
+		}
+
+		av, err := attributevalue.MarshalMap(item)
+		if err != nil {
+			return fmt.Errorf("failed to marshal leaderboard item: %w", err)
+		}
+
+		_, err = dynamoClient.PutItem(context.TODO(), &dynamodb.PutItemInput{
+			TableName: aws.String(leaderboardTable),
+			Item:      av,
+		})
+
+		return err
+	}
+
+	return nil
+}
+
+func fetchLeaderboard() ([]LeaderboardItem, error) {
+	leaderboardTable := os.Getenv("LEADERBOARD_TABLE_NAME")
+	if leaderboardTable == "" {
+		return nil, fmt.Errorf("LEADERBOARD_TABLE_NAME environment variable not set")
+	}
+
+	result, err := dynamoClient.Scan(context.TODO(), &dynamodb.ScanInput{
+		TableName: aws.String(leaderboardTable),
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to scan leaderboard table: %w", err)
+	}
+
+	var items []LeaderboardItem
+	err = attributevalue.UnmarshalListOfMaps(result.Items, &items)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal leaderboard items: %w", err)
+	}
+
+	// Sort by score (descending) and assign ranks
+	for i := 0; i < len(items); i++ {
+		for j := i + 1; j < len(items); j++ {
+			if items[j].Score > items[i].Score {
+				items[i], items[j] = items[j], items[i]
+			}
+		}
+	}
+
+	// Assign ranks
+	for i := range items {
+		items[i].Rank = i + 1
+	}
+
+	// Return top 10
+	if len(items) > 10 {
+		items = items[:10]
+	}
+
+	return items, nil
 }
 
 func main() {

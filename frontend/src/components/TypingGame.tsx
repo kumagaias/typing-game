@@ -285,6 +285,11 @@ export default function TypingGame() {
 
   // 入力処理（変換中は判定しない）
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // スコア送信画面やリーダーボード表示中は入力を無効にする
+    if (showScoreSubmission || showLeaderboard) {
+      return
+    }
+
     const input = e.target.value
     setGameState(prev => ({ ...prev, userInput: input }))
   }
@@ -307,11 +312,20 @@ export default function TypingGame() {
 
   // 日本語変換開始
   const handleCompositionStart = () => {
+    // スコア送信画面やリーダーボード表示中は変換を無効にする
+    if (showScoreSubmission || showLeaderboard) {
+      return
+    }
     setIsComposing(true)
   }
 
   // 日本語変換終了
   const handleCompositionEnd = (e: React.CompositionEvent<HTMLInputElement>) => {
+    // スコア送信画面やリーダーボード表示中は変換を無効にする
+    if (showScoreSubmission || showLeaderboard) {
+      return
+    }
+
     setIsComposing(false)
     // 変換確定後に判定
     setTimeout(() => {
@@ -431,6 +445,11 @@ export default function TypingGame() {
 
   // キーボードイベント処理
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // スコア送信画面やリーダーボード表示中は入力を無効にする
+    if (showScoreSubmission || showLeaderboard) {
+      return
+    }
+
     if (e.key === 'Enter' && !isComposing) {
       const input = gameState.userInput
       const currentWord = gameState.currentWord
@@ -470,6 +489,11 @@ export default function TypingGame() {
   // グローバルキーボードイベント処理（ゲーム進行用）
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // スコア送信画面やリーダーボード表示中はキーボードイベントを無効にする
+      if (showScoreSubmission || showLeaderboard) {
+        return
+      }
+
       // スペースキーでゲーム進行
       if (e.code === 'Space') {
         e.preventDefault() // スクロールを防ぐ
@@ -490,7 +514,7 @@ export default function TypingGame() {
 
     document.addEventListener('keydown', handleGlobalKeyDown)
     return () => document.removeEventListener('keydown', handleGlobalKeyDown)
-  }, [gameState.gameStatus, gameState.winner])
+  }, [gameState.gameStatus, gameState.winner, showScoreSubmission, showLeaderboard])
 
   // 次のラウンドへ
   const nextRound = () => {
@@ -575,8 +599,18 @@ export default function TypingGame() {
     })
   }
 
-  // ゲームリセット（最初から）
+  // スコア送信が必要かチェックしてからリセット
   const resetGame = () => {
+    // スコアが0より大きい場合はスコア送信画面を表示
+    if (gameState.score > 0) {
+      setShowScoreSubmission(true)
+    } else {
+      resetGameDirectly()
+    }
+  }
+
+  // ゲームリセット（最初から）- 直接実行
+  const resetGameDirectly = () => {
     setGameState({
       round: 1,
       playerHP: 100,
@@ -629,7 +663,12 @@ export default function TypingGame() {
           <div className="flex justify-between items-center mb-4">
             <button
               onClick={() => setShowLeaderboard(true)}
-              className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg text-sm transition-colors"
+              disabled={showScoreSubmission}
+              className={`font-bold py-2 px-4 rounded-lg text-sm transition-colors ${
+                showScoreSubmission
+                  ? 'bg-gray-400 cursor-not-allowed text-white'
+                  : 'bg-yellow-500 hover:bg-yellow-600 text-white'
+              }`}
             >
               🏆 ランキング
             </button>
@@ -742,7 +781,12 @@ export default function TypingGame() {
               <div className="text-center">
                 <button
                   onClick={startRound}
-                  className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-lg text-xl"
+                  disabled={showScoreSubmission || showLeaderboard}
+                  className={`font-bold py-4 px-8 rounded-lg text-xl transition-colors ${
+                    showScoreSubmission || showLeaderboard
+                      ? 'bg-gray-400 cursor-not-allowed text-white'
+                      : 'bg-blue-500 hover:bg-blue-700 text-white'
+                  }`}
                 >
                   ラウンド {gameState.round} 開始！
                 </button>
@@ -802,8 +846,11 @@ export default function TypingGame() {
                   onKeyDown={handleKeyDown}
                   onCompositionStart={handleCompositionStart}
                   onCompositionEnd={handleCompositionEnd}
+                  disabled={showScoreSubmission || showLeaderboard}
                   className={`w-full max-w-sm px-3 py-2 text-lg border-2 rounded-lg focus:outline-none transition-colors ${effectState.showDamage
                     ? 'border-red-500 bg-red-50'
+                    : showScoreSubmission || showLeaderboard
+                    ? 'border-gray-300 bg-gray-100 cursor-not-allowed'
                     : 'border-gray-300 focus:border-blue-500'
                     }`}
                   placeholder="ここにタイピング..."
@@ -865,9 +912,13 @@ export default function TypingGame() {
 
                     <button
                       onClick={nextRound}
-                      className={`font-bold py-3 px-6 rounded-lg text-lg transition-colors ${gameState.round >= 5
-                        ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
-                        : 'bg-green-500 hover:bg-green-700 text-white'
+                      disabled={showScoreSubmission || showLeaderboard}
+                      className={`font-bold py-3 px-6 rounded-lg text-lg transition-colors ${
+                        showScoreSubmission || showLeaderboard
+                          ? 'bg-gray-400 cursor-not-allowed text-white'
+                          : gameState.round >= 5
+                          ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
+                          : 'bg-green-500 hover:bg-green-700 text-white'
                         }`}
                     >
                       {gameState.round >= 5 ? '🏆 ゲーム完了' : '⚔️ 次のラウンドへ'}
@@ -899,15 +950,25 @@ export default function TypingGame() {
                     <div className="space-y-2">
                       <button
                         onClick={retryRound}
-                        className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-6 rounded-lg text-lg w-full"
+                        disabled={showScoreSubmission || showLeaderboard}
+                        className={`font-bold py-3 px-6 rounded-lg text-lg w-full transition-colors ${
+                          showScoreSubmission || showLeaderboard
+                            ? 'bg-gray-400 cursor-not-allowed text-white'
+                            : 'bg-orange-500 hover:bg-orange-600 text-white'
+                        }`}
                       >
                         🔄 ラウンド {gameState.round} から再挑戦
                       </button>
                       <button
                         onClick={resetGame}
-                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg text-base w-full"
+                        disabled={showScoreSubmission || showLeaderboard}
+                        className={`font-bold py-2 px-4 rounded-lg text-base w-full transition-colors ${
+                          showScoreSubmission || showLeaderboard
+                            ? 'bg-gray-400 cursor-not-allowed text-white'
+                            : 'bg-blue-500 hover:bg-blue-700 text-white'
+                        }`}
                       >
-                        🏠 最初から
+                        {gameState.score > 0 ? '🏠 最初から（スコア記録）' : '🏠 最初から'}
                       </button>
                       <div className="mt-2 text-xs text-white drop-shadow-lg">
                         💡 スペースキーで再挑戦できます
@@ -950,13 +1011,23 @@ export default function TypingGame() {
                 <div className="space-y-3">
                   <button
                     onClick={() => setShowLeaderboard(true)}
-                    className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-6 rounded-lg text-lg mr-3"
+                    disabled={showScoreSubmission}
+                    className={`font-bold py-3 px-6 rounded-lg text-lg mr-3 transition-colors ${
+                      showScoreSubmission
+                        ? 'bg-gray-400 cursor-not-allowed text-white'
+                        : 'bg-yellow-500 hover:bg-yellow-600 text-white'
+                    }`}
                   >
                     🏆 ランキング
                   </button>
                   <button
                     onClick={resetGame}
-                    className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg text-lg"
+                    disabled={showScoreSubmission}
+                    className={`font-bold py-3 px-6 rounded-lg text-lg transition-colors ${
+                      showScoreSubmission
+                        ? 'bg-gray-400 cursor-not-allowed text-white'
+                        : 'bg-purple-500 hover:bg-purple-700 text-white'
+                    }`}
                   >
                     もう一度プレイ
                   </button>
@@ -973,7 +1044,10 @@ export default function TypingGame() {
       {/* リーダーボード */}
       <Leaderboard
         isVisible={showLeaderboard}
-        onClose={() => setShowLeaderboard(false)}
+        onClose={() => {
+          setShowLeaderboard(false)
+          resetGameDirectly()
+        }}
         currentScore={gameState.score}
       />
 
@@ -983,7 +1057,11 @@ export default function TypingGame() {
         score={gameState.score}
         round={gameState.round}
         totalTime={gameState.totalTime}
-        onClose={() => setShowScoreSubmission(false)}
+        onClose={() => {
+          // スコア送信をスキップした場合はゲームをリセット
+          setShowScoreSubmission(false)
+          resetGameDirectly()
+        }}
         onSubmitted={() => {
           // スコア送信後にリーダーボードを表示
           setShowScoreSubmission(false)

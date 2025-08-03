@@ -44,11 +44,11 @@ resource "aws_dynamodb_table" "scores" {
 resource "aws_dynamodb_table" "leaderboard" {
   name           = "${var.project_name}-leaderboard-${var.environment}"
   billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "rank"
+  hash_key       = "player_name"
 
   attribute {
-    name = "rank"
-    type = "N"
+    name = "player_name"
+    type = "S"
   }
 
   tags = {
