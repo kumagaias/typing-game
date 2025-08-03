@@ -27,7 +27,7 @@ type ScoreItem struct {
 	Score      int    `dynamodbav:"score"`
 	Round      int    `dynamodbav:"round"`
 	Time       int    `dynamodbav:"time"`
-	Timestamp  string `dynamodbav:"timestamp"`
+	Timestamp  int64  `dynamodbav:"timestamp"`
 	ScoreType  string `dynamodbav:"score_type"`
 }
 
@@ -143,15 +143,15 @@ func submitScore(c *gin.Context) {
 	// Save to DynamoDB
 	err := saveScore(scoreData.PlayerName, scoreData.Score, scoreData.Round, scoreData.Time)
 	if err != nil {
-		log.Printf("Failed to save score: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save score"})
+		log.Printf("Failed to save score for player %s: %v", scoreData.PlayerName, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save score", "details": err.Error()})
 		return
 	}
 
 	// Update leaderboard
 	err = updateLeaderboard(scoreData.PlayerName, scoreData.Score, scoreData.Round)
 	if err != nil {
-		log.Printf("Failed to update leaderboard: %v", err)
+		log.Printf("Failed to update leaderboard for player %s: %v", scoreData.PlayerName, err)
 		// Continue even if leaderboard update fails
 	}
 	
@@ -184,15 +184,18 @@ func Handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 func saveScore(playerName string, score, round, gameTime int) error {
 	scoresTable := os.Getenv("SCORES_TABLE_NAME")
 	if scoresTable == "" {
+		log.Printf("Environment variables: SCORES_TABLE_NAME=%s", scoresTable)
 		return fmt.Errorf("SCORES_TABLE_NAME environment variable not set")
 	}
+	
+	log.Printf("Saving score to table: %s, player: %s, score: %d", scoresTable, playerName, score)
 
 	item := ScoreItem{
 		PlayerName: playerName,
 		Score:      score,
 		Round:      round,
 		Time:       gameTime,
-		Timestamp:  fmt.Sprintf("%d", time.Now().Unix()),
+		Timestamp:  time.Now().Unix(),
 		ScoreType:  "game", // GSI用の固定値
 	}
 
