@@ -371,7 +371,7 @@ func fetchWords(round int) ([]WordItem, error) {
 		return nil, fmt.Errorf("failed to unmarshal words: %w", err)
 	}
 
-	log.Printf("Fetched %d words for round %d", len(words), round)
+	log.Printf("Successfully fetched %d words for round %d", len(words), round)
 	return words, nil
 }
 

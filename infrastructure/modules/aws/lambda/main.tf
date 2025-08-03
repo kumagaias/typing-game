@@ -53,7 +53,9 @@ resource "aws_iam_role_policy" "lambda_policy" {
           var.scores_table_arn,
           "${var.scores_table_arn}/*",
           var.leaderboard_table_arn,
-          "${var.leaderboard_table_arn}/*"
+          "${var.leaderboard_table_arn}/*",
+          var.words_table_arn,
+          "${var.words_table_arn}/*"
         ]
       },
       {
