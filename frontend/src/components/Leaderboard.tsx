@@ -48,7 +48,7 @@ export default function Leaderboard({ isVisible, onClose, currentScore }: Leader
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 max-h-96 overflow-y-auto">
+      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 max-h-[80vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-2xl font-bold text-gray-800">🏆 リーダーボード</h2>
           <button
@@ -85,41 +85,78 @@ export default function Leaderboard({ isVisible, onClose, currentScore }: Leader
                 まだスコアが登録されていません
               </p>
             ) : (
-              leaderboard.map((entry, index) => (
-                <div
-                  key={index}
-                  className={`flex items-center justify-between p-3 rounded-lg ${
-                    currentScore && entry.score === currentScore
-                      ? 'bg-yellow-100 border-2 border-yellow-400'
-                      : 'bg-gray-50'
-                  }`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${
-                      entry.rank === 1 ? 'bg-yellow-500' :
-                      entry.rank === 2 ? 'bg-gray-400' :
-                      entry.rank === 3 ? 'bg-orange-600' :
-                      'bg-blue-500'
-                    }`}>
-                      {entry.rank}
+              <>
+                {/* トップ10位 - 豪華な表示 */}
+                {leaderboard.slice(0, 10).map((entry, index) => (
+                  <div
+                    key={index}
+                    className={`flex items-center justify-between p-3 rounded-lg ${
+                      currentScore && entry.score === currentScore
+                        ? 'bg-yellow-100 border-2 border-yellow-400'
+                        : 'bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${
+                        entry.rank === 1 ? 'bg-yellow-500' :
+                        entry.rank === 2 ? 'bg-gray-400' :
+                        entry.rank === 3 ? 'bg-orange-600' :
+                        'bg-blue-500'
+                      }`}>
+                        {entry.rank}
+                      </div>
+                      <div>
+                        <div className="font-semibold text-gray-800">
+                          {entry.player_name}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          ラウンド {entry.round}
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <div className="font-semibold text-gray-800">
-                        {entry.player_name}
+                    <div className="text-right">
+                      <div className="font-bold text-lg text-gray-800">
+                        {(entry.score || 0).toLocaleString()}
                       </div>
-                      <div className="text-sm text-gray-600">
-                        ラウンド {entry.round}
-                      </div>
+                      <div className="text-xs text-gray-500">pts</div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="font-bold text-lg text-gray-800">
-                      {(entry.score || 0).toLocaleString()}
+                ))}
+                
+                {/* 11-30位 - 簡素な表示 */}
+                {leaderboard.length > 10 && (
+                  <div className="mt-4">
+                    <div className="text-sm text-gray-500 mb-2 px-2">11位以下</div>
+                    <div className="space-y-1">
+                      {leaderboard.slice(10, 30).map((entry, index) => (
+                        <div
+                          key={index + 10}
+                          className={`flex items-center justify-between px-3 py-2 text-sm rounded ${
+                            currentScore && entry.score === currentScore
+                              ? 'bg-yellow-50 border border-yellow-300'
+                              : 'bg-gray-25 hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex items-center space-x-2">
+                            <span className="w-6 text-center text-gray-500 font-medium">
+                              {entry.rank}
+                            </span>
+                            <span className="text-gray-700">
+                              {entry.player_name}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              R{entry.round}
+                            </span>
+                          </div>
+                          <div className="text-gray-600 font-medium">
+                            {(entry.score || 0).toLocaleString()}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                    <div className="text-xs text-gray-500">pts</div>
                   </div>
-                </div>
-              ))
+                )}
+              </>
             )}
           </div>
         )}

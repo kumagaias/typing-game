@@ -302,9 +302,9 @@ func fetchLeaderboard() ([]LeaderboardItem, error) {
 		items[i].Rank = i + 1
 	}
 
-	// Return top 10
-	if len(items) > 10 {
-		items = items[:10]
+	// Return top 30
+	if len(items) > 30 {
+		items = items[:30]
 	}
 
 	return items, nil
