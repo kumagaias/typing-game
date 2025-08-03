@@ -697,7 +697,9 @@ export default function TypingGame() {
       maxCombo: 0,
       roundStartTime: 0,
       totalTime: 1, // 最小1秒
-      roundStartScore: 0
+      roundStartScore: 0,
+      availableWords: [],
+      wordsLoading: false
     })
     setEffectState({
       showExplosion: false,
