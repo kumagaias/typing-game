@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { apiClient, ScoreData } from '../lib/api'
 
 interface ScoreSubmissionProps {
@@ -24,6 +24,16 @@ export default function ScoreSubmission({
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // コンポーネントが表示される時に状態をリセット
+  useEffect(() => {
+    if (isVisible) {
+      setPlayerName('')
+      setSubmitted(false)
+      setError(null)
+      setSubmitting(false)
+    }
+  }, [isVisible])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
