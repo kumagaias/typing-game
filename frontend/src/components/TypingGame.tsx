@@ -277,9 +277,13 @@ export default function TypingGame() {
       // 時間切れ - 敵の勝利（敵がまだ生きている場合のみ）
       setGameState(prev => ({
         ...prev,
-        gameStatus: 'roundEnd',
+        gameStatus: 'gameEnd',
         winner: 'enemy'
       }))
+      // 敗北時もスコア送信画面を表示
+      if (gameState.score > 0) {
+        setShowScoreSubmission(true)
+      }
     }
   }, [gameState.gameStatus, gameState.timeLeft, gameState.enemyHP])
 
@@ -486,9 +490,13 @@ export default function TypingGame() {
         if (newPlayerHP === 0) {
           setGameState(prev => ({
             ...prev,
-            gameStatus: 'roundEnd',
+            gameStatus: 'gameEnd',
             winner: 'enemy'
           }))
+          // 敗北時もスコア送信画面を表示
+          if (gameState.score > 0) {
+            setShowScoreSubmission(true)
+          }
         }
       }
     }
@@ -515,7 +523,10 @@ export default function TypingGame() {
             retryRound()
           }
         } else if (gameState.gameStatus === 'gameEnd') {
-          resetGame()
+          // ゲーム終了時は、スコア送信画面が表示されていない場合のみresetGameを呼ぶ
+          if (!showScoreSubmission) {
+            resetGame()
+          }
         }
       }
     }
