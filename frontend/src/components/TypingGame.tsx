@@ -158,7 +158,7 @@ export default function TypingGame() {
     score: 0,
     maxCombo: 0,
     roundStartTime: 0,
-    totalTime: 0,
+    totalTime: 1, // 最小1秒
     roundStartScore: 0
   })
 
@@ -387,7 +387,7 @@ export default function TypingGame() {
 
       if (newEnemyHP === 0) {
         // ラウンド完了時の時間ボーナス計算
-        const roundTime = (Date.now() - gameState.roundStartTime) / 1000
+        const roundTime = Math.max(0, (Date.now() - gameState.roundStartTime) / 1000)
         const timeLimit = ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA].timeLimit
         const timeBonusScore = Math.max(0, Math.floor((timeLimit - roundTime) * 10))
         const finalScore = newScore + timeBonusScore
@@ -396,6 +396,14 @@ export default function TypingGame() {
         setEffectState(prev => ({ ...prev, showExplosion: true, explosionSkippable: false }))
 
         // 敵のHPを即座に0に設定（視覚的フィードバック）
+        const newTotalTime = Math.max(1, gameState.totalTime + roundTime) // 最小1秒を保証
+        console.log('Round completed:', {
+          round: gameState.round,
+          roundTime,
+          totalTime: newTotalTime,
+          score: finalScore
+        })
+        
         setGameState(prev => ({
           ...prev,
           enemyHP: 0,
@@ -404,7 +412,7 @@ export default function TypingGame() {
           combo: newCombo,
           score: finalScore,
           maxCombo: newMaxCombo,
-          totalTime: prev.totalTime + roundTime
+          totalTime: newTotalTime
         }))
 
         // 0.5秒後にスキップ可能にする
@@ -611,6 +619,7 @@ export default function TypingGame() {
 
   // ゲームリセット（最初から）- 直接実行
   const resetGameDirectly = () => {
+    console.log('Resetting game directly')
     setGameState({
       round: 1,
       playerHP: 100,
@@ -628,7 +637,7 @@ export default function TypingGame() {
       score: 0,
       maxCombo: 0,
       roundStartTime: 0,
-      totalTime: 0,
+      totalTime: 1, // 最小1秒
       roundStartScore: 0
     })
     setEffectState({

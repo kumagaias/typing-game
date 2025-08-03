@@ -37,19 +37,56 @@ export default function ScoreSubmission({
     setError(null)
 
     try {
-      const scoreData: ScoreData = {
-        player_name: playerName.trim(),
-        score,
-        round,
-        time: Math.floor(totalTime)
+      // バリデーション
+      const trimmedName = playerName.trim()
+      // totalTimeが0やNaNの場合は1秒に設定、それ以外は最小1秒を保証
+      let timeValue = 1
+      if (totalTime && !isNaN(totalTime) && totalTime > 0) {
+        timeValue = Math.max(1, Math.floor(totalTime))
+      }
+      
+      if (trimmedName.length < 1 || trimmedName.length > 20) {
+        setError('プレイヤー名は1-20文字で入力してください')
+        return
+      }
+      
+      if (score < 0 || score > 1000000) {
+        setError('スコアが無効です')
+        return
+      }
+      
+      if (round < 1 || round > 5) {
+        setError('ラウンドが無効です')
+        return
+      }
+      
+      if (timeValue < 1 || timeValue > 3600) {
+        setError('時間が無効です（1-3600秒）')
+        return
       }
 
+      const scoreData: ScoreData = {
+        player_name: trimmedName,
+        score,
+        round,
+        time: timeValue
+      }
+
+      console.log('Submitting score data:', scoreData)
+      console.log('Original totalTime:', totalTime)
       await apiClient.submitScore(scoreData)
       setSubmitted(true)
       onSubmitted()
     } catch (err) {
       setError('スコアの送信に失敗しました')
       console.error('Failed to submit score:', err)
+      console.error('Score data that failed:', {
+        player_name: playerName.trim(),
+        score,
+        round,
+        time: Math.floor(totalTime),
+        originalTotalTime: totalTime
+      })
     } finally {
       setSubmitting(false)
     }

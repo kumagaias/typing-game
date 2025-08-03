@@ -226,7 +226,7 @@ curl $API_GATEWAY_URL/api/game/leaderboard
 - **GitHub Pages**: 静的サイトホスティング
 
 ### バックエンド
-- **Go**: 高性能なAPIサーバー
+- **Go**: APIサーバー
 - **Gin**: Webフレームワーク
 - **AWS Lambda**: サーバーレス実行環境
 - **Amazon ECR**: コンテナレジストリ

@@ -109,9 +109,9 @@ func healthCheck(c *gin.Context) {
 func submitScore(c *gin.Context) {
 	var scoreData struct {
 		PlayerName string `json:"player_name" binding:"required"`
-		Score      int    `json:"score" binding:"required"`
-		Round      int    `json:"round" binding:"required"`
-		Time       int    `json:"time" binding:"required"`
+		Score      int    `json:"score" binding:"required,min=0"`
+		Round      int    `json:"round" binding:"required,min=1,max=5"`
+		Time       int    `json:"time" binding:"min=0"`
 	}
 	
 	if err := c.ShouldBindJSON(&scoreData); err != nil {
