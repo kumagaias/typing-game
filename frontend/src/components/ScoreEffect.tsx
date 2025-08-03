@@ -84,7 +84,7 @@ export default function ScoreEffect({ scoreGain, isVisible, onComplete }: ScoreE
         }}
       >
         <div className={`${effectStyle.size} font-bold ${effectStyle.color} drop-shadow-lg`}>
-          +{scoreGain.toLocaleString()}
+          +{(scoreGain || 0).toLocaleString()}
         </div>
       </div>
       

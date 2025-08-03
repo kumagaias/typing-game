@@ -111,7 +111,7 @@ export default function ScoreSubmission({
         <div className="bg-gray-50 rounded-lg p-4 mb-4">
           <div className="text-center space-y-2">
             <div className="text-3xl font-bold text-blue-600">
-              {score.toLocaleString()}
+              {(score || 0).toLocaleString()}
             </div>
             <div className="text-sm text-gray-600">
               ラウンド {round} クリア・総時間 {Math.floor(totalTime)}秒

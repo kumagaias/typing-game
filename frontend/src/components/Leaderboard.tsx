@@ -25,7 +25,18 @@ export default function Leaderboard({ isVisible, onClose, currentScore }: Leader
     setError(null)
     try {
       const response = await apiClient.getLeaderboard()
-      setLeaderboard(response.leaderboard || [])
+      console.log('Leaderboard response:', response)
+      
+      // データの検証と修正
+      const validatedLeaderboard = (response.leaderboard || []).map(entry => ({
+        ...entry,
+        score: entry.score || 0,
+        rank: entry.rank || 0,
+        round: entry.round || 1,
+        player_name: entry.player_name || 'Unknown'
+      }))
+      
+      setLeaderboard(validatedLeaderboard)
     } catch (err) {
       setError('リーダーボードの取得に失敗しました')
       console.error('Failed to fetch leaderboard:', err)
@@ -104,7 +115,7 @@ export default function Leaderboard({ isVisible, onClose, currentScore }: Leader
                   </div>
                   <div className="text-right">
                     <div className="font-bold text-lg text-gray-800">
-                      {entry.score.toLocaleString()}
+                      {(entry.score || 0).toLocaleString()}
                     </div>
                     <div className="text-xs text-gray-500">pts</div>
                   </div>

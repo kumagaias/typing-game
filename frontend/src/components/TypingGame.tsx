@@ -691,7 +691,7 @@ export default function TypingGame() {
           <div className="text-center mb-4">
             <h2 className="text-xl font-semibold text-white drop-shadow-lg">ラウンド {gameState.round}/5</h2>
             <p className="text-base mt-1 text-white drop-shadow-lg relative">
-              スコア: <span className="text-green-300">{gameState.score.toLocaleString()}</span>
+              スコア: <span className="text-green-300">{(gameState.score || 0).toLocaleString()}</span>
               <ScoreEffect
                 key={effectState.scoreEffectKey}
                 scoreGain={effectState.lastScoreGain}
@@ -890,7 +890,7 @@ export default function TypingGame() {
                             <div className="font-semibold">{ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA].name}</div>
                             <div className="text-gray-600">HP: 0/{ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA].maxHP} (撃破)</div>
                             <div className="text-blue-600">単語: {gameState.wordsCompleted}</div>
-                            <div className="text-green-600">スコア: {gameState.score.toLocaleString()}</div>
+                            <div className="text-green-600">スコア: {(gameState.score || 0).toLocaleString()}</div>
                           </div>
                         </div>
                       </div>
@@ -947,7 +947,7 @@ export default function TypingGame() {
                         </div>
                         <div className="flex justify-between">
                           <span>現在のスコア:</span>
-                          <span className="font-bold text-green-600">{gameState.score.toLocaleString()}</span>
+                          <span className="font-bold text-green-600">{(gameState.score || 0).toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between">
                           <span>最大コンボ:</span>
@@ -998,7 +998,7 @@ export default function TypingGame() {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span>総スコア:</span>
-                      <span className="font-bold text-green-600">{gameState.score.toLocaleString()}</span>
+                      <span className="font-bold text-green-600">{(gameState.score || 0).toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>最大コンボ:</span>
