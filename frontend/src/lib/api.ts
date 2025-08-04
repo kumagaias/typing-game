@@ -7,6 +7,7 @@ export interface ScoreData {
   score: number;
   round: number;
   time: number;
+  category: string;
 }
 
 export interface LeaderboardEntry {
@@ -14,6 +15,7 @@ export interface LeaderboardEntry {
   player_name: string;
   score: number;
   round: number;
+  category: string;
 }
 
 export interface WordItem {

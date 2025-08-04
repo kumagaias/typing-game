@@ -1274,6 +1274,7 @@ export default function TypingGame() {
         score={gameState.score}
         round={gameState.round}
         totalTime={gameState.totalTime}
+        category={gameState.selectedCategory}
         onClose={() => {
           // スコア送信をスキップした場合はゲームをリセット
           setShowScoreSubmission(false)

@@ -32,6 +32,7 @@ export default function Leaderboard({ isVisible, onClose, currentScore }: Leader
         score: entry.score || entry.Score || 0,
         rank: entry.rank || entry.Rank || 0,
         round: entry.round || entry.Round || 1,
+        category: entry.category || entry.Category || 'food',
         player_name: entry.player_name || entry.PlayerName || 'Unknown'
       }))
       
@@ -110,7 +111,9 @@ export default function Leaderboard({ isVisible, onClose, currentScore }: Leader
                           {entry.player_name}
                         </div>
                         <div className="text-sm text-gray-600">
-                          ラウンド {entry.round}
+                          {entry.category === 'food' ? '🍜' : 
+                           entry.category === 'vehicle' ? '🚗' : 
+                           entry.category === 'station' ? '🚉' : '🍜'} ラウンド {entry.round}
                         </div>
                       </div>
                     </div>
@@ -145,7 +148,9 @@ export default function Leaderboard({ isVisible, onClose, currentScore }: Leader
                               {entry.player_name}
                             </span>
                             <span className="text-xs text-gray-500">
-                              R{entry.round}
+                              {entry.category === 'food' ? '🍜' : 
+                               entry.category === 'vehicle' ? '🚗' : 
+                               entry.category === 'station' ? '🚉' : '🍜'}R{entry.round}
                             </span>
                           </div>
                           <div className="text-gray-600 font-medium">

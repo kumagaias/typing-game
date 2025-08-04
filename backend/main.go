@@ -28,6 +28,7 @@ type ScoreItem struct {
 	Score      int    `dynamodbav:"score"`
 	Round      int    `dynamodbav:"round"`
 	Time       int    `dynamodbav:"time"`
+	Category   string `dynamodbav:"category"`
 	Timestamp  int64  `dynamodbav:"timestamp"`
 	ScoreType  string `dynamodbav:"score_type"`
 }
@@ -36,6 +37,7 @@ type LeaderboardItem struct {
 	PlayerName string `dynamodbav:"player_name" json:"player_name"`
 	Score      int    `dynamodbav:"score" json:"score"`
 	Round      int    `dynamodbav:"round" json:"round"`
+	Category   string `dynamodbav:"category" json:"category"`
 	Rank       int    `dynamodbav:"rank" json:"rank"`
 }
 
@@ -125,6 +127,7 @@ func submitScore(c *gin.Context) {
 		Score      int    `json:"score" binding:"required,min=0"`
 		Round      int    `json:"round" binding:"required,min=1,max=5"`
 		Time       int    `json:"time" binding:"min=0"`
+		Category   string `json:"category" binding:"required"`
 	}
 	
 	if err := c.ShouldBindJSON(&scoreData); err != nil {
@@ -156,7 +159,7 @@ func submitScore(c *gin.Context) {
 	}
 	
 	// Save to DynamoDB
-	err := saveScore(scoreData.PlayerName, scoreData.Score, scoreData.Round, scoreData.Time)
+	err := saveScore(scoreData.PlayerName, scoreData.Score, scoreData.Round, scoreData.Time, scoreData.Category)
 	if err != nil {
 		log.Printf("Failed to save score for player %s: %v", scoreData.PlayerName, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save score", "details": err.Error()})
@@ -164,7 +167,7 @@ func submitScore(c *gin.Context) {
 	}
 
 	// Update leaderboard
-	err = updateLeaderboard(scoreData.PlayerName, scoreData.Score, scoreData.Round)
+	err = updateLeaderboard(scoreData.PlayerName, scoreData.Score, scoreData.Round, scoreData.Category)
 	if err != nil {
 		log.Printf("Failed to update leaderboard for player %s: %v", scoreData.PlayerName, err)
 		// Continue even if leaderboard update fails
@@ -263,7 +266,7 @@ func Handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 }
 
 // DynamoDB operations
-func saveScore(playerName string, score, round, gameTime int) error {
+func saveScore(playerName string, score, round, gameTime int, category string) error {
 	scoresTable := os.Getenv("SCORES_TABLE_NAME")
 	if scoresTable == "" {
 		log.Printf("Environment variables: SCORES_TABLE_NAME=%s", scoresTable)
@@ -277,6 +280,7 @@ func saveScore(playerName string, score, round, gameTime int) error {
 		Score:      score,
 		Round:      round,
 		Time:       gameTime,
+		Category:   category,
 		Timestamp:  time.Now().Unix(),
 		ScoreType:  "game", // GSI用の固定値
 	}
@@ -294,7 +298,7 @@ func saveScore(playerName string, score, round, gameTime int) error {
 	return err
 }
 
-func updateLeaderboard(playerName string, score, round int) error {
+func updateLeaderboard(playerName string, score, round int, category string) error {
 	leaderboardTable := os.Getenv("LEADERBOARD_TABLE_NAME")
 	if leaderboardTable == "" {
 		return fmt.Errorf("LEADERBOARD_TABLE_NAME environment variable not set")
@@ -327,6 +331,7 @@ func updateLeaderboard(playerName string, score, round int) error {
 			PlayerName: playerName,
 			Score:      score,
 			Round:      round,
+			Category:   category,
 			Rank:       0, // Will be calculated when fetching
 		}
 

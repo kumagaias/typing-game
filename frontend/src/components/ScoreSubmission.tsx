@@ -8,6 +8,7 @@ interface ScoreSubmissionProps {
   score: number
   round: number
   totalTime: number
+  category: string
   onClose: () => void
   onSubmitted: () => void
 }
@@ -17,6 +18,7 @@ export default function ScoreSubmission({
   score,
   round,
   totalTime,
+  category,
   onClose,
   onSubmitted
 }: ScoreSubmissionProps) {
@@ -79,7 +81,8 @@ export default function ScoreSubmission({
         player_name: trimmedName,
         score,
         round,
-        time: timeValue
+        time: timeValue,
+        category
       }
 
       console.log('Submitting score data:', scoreData)
