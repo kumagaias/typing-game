@@ -2,7 +2,7 @@
 
 敵とのバトル形式で楽しめるタイピングゲームです。5体の敵を倒してスコアを競おう！
 
-🎮 **[ゲームをプレイする](https://kumagaias.github.io/typing-game/)**
+🎮 **[ゲームをプレイする](https://typing-game.kumalabo.com/)**
 
 ![ゲーム画面](https://img.shields.io/badge/Status-Live-brightgreen) ![Next.js](https://img.shields.io/badge/Next.js-14-black) ![Go](https://img.shields.io/badge/Go-1.21-blue) ![AWS](https://img.shields.io/badge/AWS-Lambda-orange)
 
