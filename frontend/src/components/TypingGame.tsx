@@ -117,7 +117,7 @@ interface GameState {
   currentWord: string
   userInput: string
   timeLeft: number
-  gameStatus: 'waiting' | 'playing' | 'roundEnd' | 'gameEnd'
+  gameStatus: 'categorySelection' | 'waiting' | 'playing' | 'roundEnd' | 'gameEnd'
   winner: 'player' | 'enemy' | null
   wordsCompleted: number
   combo: number
@@ -153,7 +153,7 @@ export default function TypingGame() {
     currentWord: '',
     userInput: '',
     timeLeft: 45,
-    gameStatus: 'waiting',
+    gameStatus: 'categorySelection',
     winner: null,
     wordsCompleted: 0,
     combo: 0,
@@ -167,7 +167,7 @@ export default function TypingGame() {
     roundStartScore: 0,
     availableWords: [],
     wordsLoading: false,
-    selectedCategory: 'food'
+    selectedCategory: ''
   })
 
   const [effectState, setEffectState] = useState<EffectState>({
@@ -208,6 +208,11 @@ export default function TypingGame() {
 
   // 単語を取得する関数
   const fetchWordsForRound = async (category: string, round: number) => {
+    if (!category) {
+      console.warn('No category selected')
+      return
+    }
+    
     setGameState(prev => ({ ...prev, wordsLoading: true }))
     try {
       const response = await apiClient.getWords(category, round)
@@ -580,7 +585,9 @@ export default function TypingGame() {
       if (e.code === 'Space') {
         e.preventDefault() // スクロールを防ぐ
 
-        if (gameState.gameStatus === 'waiting') {
+        if (gameState.gameStatus === 'categorySelection') {
+          setShowCategorySelection(true)
+        } else if (gameState.gameStatus === 'waiting') {
           startRound()
         } else if (gameState.gameStatus === 'roundEnd') {
           if (gameState.winner === 'player') {
@@ -704,7 +711,7 @@ export default function TypingGame() {
       currentWord: '',
       userInput: '',
       timeLeft: 45,
-      gameStatus: 'waiting',
+      gameStatus: 'categorySelection',
       winner: null,
       wordsCompleted: 0,
       combo: 0,
@@ -718,7 +725,7 @@ export default function TypingGame() {
       roundStartScore: 0,
       availableWords: [],
       wordsLoading: false,
-      selectedCategory: 'food'
+      selectedCategory: ''
     })
     setEffectState({
       showExplosion: false,
@@ -876,6 +883,28 @@ export default function TypingGame() {
 
           {/* ゲーム画面 */}
           <div className="max-w-xl mx-auto flex-1 flex flex-col justify-center">
+            {gameState.gameStatus === 'categorySelection' && (
+              <div className="text-center">
+                <div className="mb-6">
+                  <h2 className="text-2xl font-bold text-white drop-shadow-lg mb-2">
+                    🎯 カテゴリーを選択してください
+                  </h2>
+                  <p className="text-white drop-shadow-lg">
+                    挑戦したいカテゴリーを選んでゲームを開始しましょう！
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowCategorySelection(true)}
+                  className="font-bold py-4 px-8 rounded-lg text-xl bg-purple-500 hover:bg-purple-600 text-white transition-colors"
+                >
+                  🎯 カテゴリーを選ぶ
+                </button>
+                <div className="mt-4 text-sm text-white drop-shadow-lg">
+                  💡 食べ物、乗り物、駅名から選択できます
+                </div>
+              </div>
+            )}
+
             {gameState.gameStatus === 'waiting' && (
               <div className="text-center">
                 {gameState.round === 1 ? (
@@ -1171,7 +1200,7 @@ export default function TypingGame() {
                         currentWord: '',
                         userInput: '',
                         timeLeft: 45,
-                        gameStatus: 'waiting',
+                        gameStatus: 'categorySelection',
                         winner: null,
                         wordsCompleted: 0,
                         combo: 0,
@@ -1183,7 +1212,8 @@ export default function TypingGame() {
                         roundStartTime: 0,
                         totalTime: 1,
                         roundStartScore: 0,
-                        availableWords: []
+                        availableWords: [],
+                        selectedCategory: ''
                       }))
                       setEffectState({
                         showExplosion: false,
@@ -1245,7 +1275,7 @@ export default function TypingGame() {
             ...prev, 
             selectedCategory: categoryId,
             availableWords: [], // 単語をクリア
-            gameStatus: 'waiting', // ゲーム状態をリセット
+            gameStatus: 'waiting', // カテゴリー選択後は待機状態に
             round: 1,
             score: 0,
             playerHP: 100,

@@ -111,9 +111,9 @@ export default function Leaderboard({ isVisible, onClose, currentScore }: Leader
                           {entry.player_name}
                         </div>
                         <div className="text-sm text-gray-600">
-                          {entry.category === 'food' ? '🍜' : 
-                           entry.category === 'vehicle' ? '🚗' : 
-                           entry.category === 'station' ? '🚉' : '🍜'} ラウンド {entry.round}
+                          {entry.category === 'food' ? '🍜 食べ物' : 
+                           entry.category === 'vehicle' ? '🚗 乗り物' : 
+                           entry.category === 'station' ? '🚉 駅名' : '🍜 食べ物'} ・ ラウンド {entry.round}
                         </div>
                       </div>
                     </div>
@@ -148,9 +148,9 @@ export default function Leaderboard({ isVisible, onClose, currentScore }: Leader
                               {entry.player_name}
                             </span>
                             <span className="text-xs text-gray-500">
-                              {entry.category === 'food' ? '🍜' : 
-                               entry.category === 'vehicle' ? '🚗' : 
-                               entry.category === 'station' ? '🚉' : '🍜'}R{entry.round}
+                              {entry.category === 'food' ? '🍜食べ物' : 
+                               entry.category === 'vehicle' ? '🚗乗り物' : 
+                               entry.category === 'station' ? '🚉駅名' : '🍜食べ物'}・R{entry.round}
                             </span>
                           </div>
                           <div className="text-gray-600 font-medium">
