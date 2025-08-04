@@ -749,33 +749,43 @@ export default function TypingGame() {
       {/* コンテンツ */}
       <div className="relative z-10">
         <div className="container mx-auto px-4 py-4 max-w-4xl">
-          <div className="flex justify-between items-center mb-4">
-            <button
-              onClick={() => setShowLeaderboard(true)}
-              disabled={showScoreSubmission}
-              className={`font-bold py-2 px-4 rounded-lg text-sm transition-colors ${
-                showScoreSubmission
-                  ? 'bg-gray-400 cursor-not-allowed text-white'
-                  : 'bg-yellow-500 hover:bg-yellow-600 text-white'
-              }`}
-            >
-              🏆 ランキング
-            </button>
-            <button
-              onClick={() => setShowCategorySelection(true)}
-              disabled={showScoreSubmission || gameState.gameStatus === 'playing'}
-              className={`font-bold py-2 px-4 rounded-lg text-sm transition-colors ${
-                showScoreSubmission || gameState.gameStatus === 'playing'
-                  ? 'bg-gray-400 cursor-not-allowed text-white'
-                  : 'bg-purple-500 hover:bg-purple-600 text-white'
-              }`}
-            >
-              🎯 カテゴリー
-            </button>
-            <h1 className="text-3xl font-bold text-white drop-shadow-lg">
-              タイピングゲーム
-            </h1>
-            <div className="w-24"></div> {/* スペーサー */}
+          {/* ヘッダー部分 */}
+          <div className="flex flex-col sm:flex-row items-center justify-between mb-4 gap-2">
+            {/* 左側のボタン群 */}
+            <div className="flex space-x-2 order-2 sm:order-1">
+              <button
+                onClick={() => setShowLeaderboard(true)}
+                disabled={showScoreSubmission}
+                className={`font-bold py-2 px-3 sm:px-4 rounded-lg text-xs sm:text-sm transition-colors ${
+                  showScoreSubmission
+                    ? 'bg-gray-400 cursor-not-allowed text-white'
+                    : 'bg-yellow-500 hover:bg-yellow-600 text-white'
+                }`}
+              >
+                🏆 ランキング
+              </button>
+              <button
+                onClick={() => setShowCategorySelection(true)}
+                disabled={showScoreSubmission || gameState.gameStatus === 'playing'}
+                className={`font-bold py-2 px-3 sm:px-4 rounded-lg text-xs sm:text-sm transition-colors ${
+                  showScoreSubmission || gameState.gameStatus === 'playing'
+                    ? 'bg-gray-400 cursor-not-allowed text-white'
+                    : 'bg-purple-500 hover:bg-purple-600 text-white'
+                }`}
+              >
+                🎯 カテゴリー
+              </button>
+            </div>
+            
+            {/* 中央のタイトル */}
+            <div className="order-1 sm:order-2">
+              <h1 className="text-2xl sm:text-3xl font-bold text-white drop-shadow-lg text-center">
+                タイピングゲーム
+              </h1>
+            </div>
+            
+            {/* 右側のスペース（バランス調整用） */}
+            <div className="hidden sm:block sm:w-32 order-3"></div>
           </div>
 
           {/* ラウンド表示 */}
@@ -1108,11 +1118,11 @@ export default function TypingGame() {
                   </div>
                 </div>
 
-                <div className="space-y-3">
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
                   <button
                     onClick={() => setShowLeaderboard(true)}
                     disabled={showScoreSubmission}
-                    className={`font-bold py-3 px-6 rounded-lg text-lg mr-3 transition-colors ${
+                    className={`font-bold py-3 px-6 rounded-lg text-lg transition-colors ${
                       showScoreSubmission
                         ? 'bg-gray-400 cursor-not-allowed text-white'
                         : 'bg-yellow-500 hover:bg-yellow-600 text-white'
@@ -1121,15 +1131,26 @@ export default function TypingGame() {
                     🏆 ランキング
                   </button>
                   <button
+                    onClick={() => setShowCategorySelection(true)}
+                    disabled={showScoreSubmission}
+                    className={`font-bold py-3 px-6 rounded-lg text-lg transition-colors ${
+                      showScoreSubmission
+                        ? 'bg-gray-400 cursor-not-allowed text-white'
+                        : 'bg-purple-500 hover:bg-purple-600 text-white'
+                    }`}
+                  >
+                    🎯 カテゴリー変更
+                  </button>
+                  <button
                     onClick={resetGame}
                     disabled={showScoreSubmission}
                     className={`font-bold py-3 px-6 rounded-lg text-lg transition-colors ${
                       showScoreSubmission
                         ? 'bg-gray-400 cursor-not-allowed text-white'
-                        : 'bg-purple-500 hover:bg-purple-700 text-white'
+                        : 'bg-green-500 hover:bg-green-600 text-white'
                     }`}
                   >
-                    もう一度プレイ
+                    🔄 もう一度プレイ
                   </button>
                 </div>
                 <div className="mt-2 text-sm text-white drop-shadow-lg">
