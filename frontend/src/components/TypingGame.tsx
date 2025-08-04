@@ -207,7 +207,7 @@ export default function TypingGame() {
   }
 
   // 単語を取得する関数
-  const fetchWordsForRound = async (category: string, round: number) => {
+  const fetchWordsForRound = async (category: string, round: number): Promise<void> => {
     if (!category) {
       console.warn('No category selected')
       return
@@ -217,12 +217,17 @@ export default function TypingGame() {
     try {
       const response = await apiClient.getWords(category, round)
       const words = response.words || []
-      setGameState(prev => ({ 
-        ...prev, 
-        availableWords: words,
-        wordsLoading: false 
-      }))
-      console.log(`Loaded ${words.length} words for category ${category}, round ${round}`)
+      
+      return new Promise((resolve) => {
+        setGameState(prev => ({ 
+          ...prev, 
+          availableWords: words,
+          wordsLoading: false 
+        }))
+        console.log(`Loaded ${words.length} words for category ${category}, round ${round}`)
+        // 状態更新完了を待つ
+        setTimeout(resolve, 50)
+      })
     } catch (error) {
       console.error(`Failed to fetch words for category ${category}, round ${round}:`, error)
       // フォールバック: カテゴリーに応じたハードコードされた単語を使用
@@ -247,11 +252,16 @@ export default function TypingGame() {
         round: round,
         type: 'normal' as const
       }))
-      setGameState(prev => ({ 
-        ...prev, 
-        availableWords: wordItems,
-        wordsLoading: false 
-      }))
+      
+      return new Promise((resolve) => {
+        setGameState(prev => ({ 
+          ...prev, 
+          availableWords: wordItems,
+          wordsLoading: false 
+        }))
+        // 状態更新完了を待つ
+        setTimeout(resolve, 50)
+      })
     }
   }
 
@@ -1296,40 +1306,68 @@ export default function TypingGame() {
           }))
           
           // カテゴリー選択後、少し待ってからゲームを自動開始
-          setTimeout(() => {
+          setTimeout(async () => {
             console.log(`Auto-starting game with category: ${categoryId}`)
-            fetchWordsForRound(categoryId, 1).then(() => {
-              setGameState(prev => {
-                const timeLimit = ENEMY_DATA[1].timeLimit
-                const wordData = generateRandomWord('')
-                const newWord = typeof wordData === 'string' ? wordData : wordData.word
-                return {
-                  ...prev,
-                  currentWord: newWord,
-                  userInput: '',
-                  timeLeft: timeLimit,
-                  gameStatus: 'playing',
-                  wordsCompleted: 0,
-                  combo: 0,
-                  isSpecialWord: typeof wordData !== 'string',
-                  specialType: typeof wordData === 'string' ? 'normal' : wordData.type,
-                  lastWord: newWord,
-                  roundStartTime: Date.now(),
-                  roundStartScore: prev.score
-                }
-              })
+            
+            // まず単語を取得
+            await fetchWordsForRound(categoryId, 1)
+            
+            // 単語取得完了後にゲーム開始
+            setGameState(prev => {
+              // 単語が取得できているかチェック
+              if (prev.availableWords.length === 0) {
+                console.warn('No words available after fetch, using fallback')
+                return prev // ゲーム開始しない
+              }
               
-              // 入力フィールドにフォーカス
-              setTimeout(() => {
-                if (inputRef.current) {
-                  try {
-                    inputRef.current.focus()
-                  } catch (error) {
-                    console.warn('Failed to focus input:', error)
-                  }
-                }
-              }, 100)
+              const timeLimit = ENEMY_DATA[1].timeLimit
+              
+              // 利用可能な単語から選択
+              const normalWords = prev.availableWords.filter(w => w.type === 'normal')
+              const bonusWords = prev.availableWords.filter(w => w.type === 'bonus')
+              const debuffWords = prev.availableWords.filter(w => w.type === 'debuff')
+              
+              let selectedWord: WordItem
+              let wordType: 'normal' | 'bonus' | 'debuff' = 'normal'
+
+              // 20%の確率で特殊単語
+              if (Math.random() < 0.2 && (bonusWords.length > 0 || debuffWords.length > 0)) {
+                const isBonus = Math.random() < 0.6
+                const specialWords = isBonus ? bonusWords : debuffWords
+                wordType = isBonus ? 'bonus' : 'debuff'
+                selectedWord = specialWords[Math.floor(Math.random() * specialWords.length)]
+              } else {
+                selectedWord = normalWords[Math.floor(Math.random() * normalWords.length)]
+              }
+              
+              const newWord = selectedWord.word
+              
+              return {
+                ...prev,
+                currentWord: newWord,
+                userInput: '',
+                timeLeft: timeLimit,
+                gameStatus: 'playing',
+                wordsCompleted: 0,
+                combo: 0,
+                isSpecialWord: wordType !== 'normal',
+                specialType: wordType,
+                lastWord: newWord,
+                roundStartTime: Date.now(),
+                roundStartScore: prev.score
+              }
             })
+            
+            // 入力フィールドにフォーカス
+            setTimeout(() => {
+              if (inputRef.current) {
+                try {
+                  inputRef.current.focus()
+                } catch (error) {
+                  console.warn('Failed to focus input:', error)
+                }
+              }
+            }, 100)
           }, 500) // 0.5秒後に自動開始
         }}
         onClose={() => setShowCategorySelection(false)}
