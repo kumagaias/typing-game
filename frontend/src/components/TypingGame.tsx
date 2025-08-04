@@ -764,17 +764,6 @@ export default function TypingGame() {
               >
                 🏆 ランキング
               </button>
-              <button
-                onClick={() => setShowCategorySelection(true)}
-                disabled={showScoreSubmission || gameState.gameStatus === 'playing'}
-                className={`font-bold py-2 px-3 sm:px-4 rounded-lg text-xs sm:text-sm transition-colors ${
-                  showScoreSubmission || gameState.gameStatus === 'playing'
-                    ? 'bg-gray-400 cursor-not-allowed text-white'
-                    : 'bg-purple-500 hover:bg-purple-600 text-white'
-                }`}
-              >
-                🎯 カテゴリー
-              </button>
             </div>
             
             {/* 中央のタイトル */}
@@ -889,20 +878,61 @@ export default function TypingGame() {
           <div className="max-w-xl mx-auto flex-1 flex flex-col justify-center">
             {gameState.gameStatus === 'waiting' && (
               <div className="text-center">
-                <button
-                  onClick={startRound}
-                  disabled={showScoreSubmission || showLeaderboard}
-                  className={`font-bold py-4 px-8 rounded-lg text-xl transition-colors ${
-                    showScoreSubmission || showLeaderboard
-                      ? 'bg-gray-400 cursor-not-allowed text-white'
-                      : 'bg-blue-500 hover:bg-blue-700 text-white'
-                  }`}
-                >
-                  ラウンド {gameState.round} 開始！
-                </button>
-                <div className="mt-2 text-sm text-white drop-shadow-lg">
-                  💡 スペースキーでも開始できます
-                </div>
+                {gameState.round === 1 ? (
+                  // ラウンド1の場合はカテゴリー選択を促す
+                  <div>
+                    <button
+                      onClick={() => setShowCategorySelection(true)}
+                      disabled={showScoreSubmission || showLeaderboard}
+                      className={`font-bold py-4 px-8 rounded-lg text-xl transition-colors ${
+                        showScoreSubmission || showLeaderboard
+                          ? 'bg-gray-400 cursor-not-allowed text-white'
+                          : 'bg-purple-500 hover:bg-purple-600 text-white'
+                      }`}
+                    >
+                      🎯 カテゴリーを選んでゲーム開始！
+                    </button>
+                    <div className="mt-4 text-sm text-white drop-shadow-lg">
+                      <div className="mb-2">現在のカテゴリー: <span className="font-bold">
+                        {gameState.selectedCategory === 'food' ? '🍜 食べ物' : 
+                         gameState.selectedCategory === 'vehicle' ? '🚗 乗り物' : 
+                         gameState.selectedCategory === 'station' ? '🚉 駅名' : '🍜 食べ物'}
+                      </span></div>
+                      <div>💡 カテゴリーを変更するか、そのまま開始できます</div>
+                    </div>
+                    <div className="mt-4">
+                      <button
+                        onClick={startRound}
+                        disabled={showScoreSubmission || showLeaderboard}
+                        className={`font-bold py-2 px-6 rounded-lg text-base transition-colors ${
+                          showScoreSubmission || showLeaderboard
+                            ? 'bg-gray-400 cursor-not-allowed text-white'
+                            : 'bg-blue-500 hover:bg-blue-700 text-white'
+                        }`}
+                      >
+                        このカテゴリーで開始
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  // ラウンド2以降は通常の開始ボタン
+                  <div>
+                    <button
+                      onClick={startRound}
+                      disabled={showScoreSubmission || showLeaderboard}
+                      className={`font-bold py-4 px-8 rounded-lg text-xl transition-colors ${
+                        showScoreSubmission || showLeaderboard
+                          ? 'bg-gray-400 cursor-not-allowed text-white'
+                          : 'bg-blue-500 hover:bg-blue-700 text-white'
+                      }`}
+                    >
+                      ラウンド {gameState.round} 開始！
+                    </button>
+                    <div className="mt-2 text-sm text-white drop-shadow-lg">
+                      💡 スペースキーでも開始できます
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1131,7 +1161,41 @@ export default function TypingGame() {
                     🏆 ランキング
                   </button>
                   <button
-                    onClick={() => setShowCategorySelection(true)}
+                    onClick={() => {
+                      // ゲームをラウンド1にリセットしてからカテゴリー選択を表示
+                      setGameState(prev => ({
+                        ...prev,
+                        round: 1,
+                        playerHP: 100,
+                        enemyHP: ENEMY_DATA[1].maxHP,
+                        currentWord: '',
+                        userInput: '',
+                        timeLeft: 45,
+                        gameStatus: 'waiting',
+                        winner: null,
+                        wordsCompleted: 0,
+                        combo: 0,
+                        isSpecialWord: false,
+                        specialType: 'normal',
+                        lastWord: '',
+                        score: 0,
+                        maxCombo: 0,
+                        roundStartTime: 0,
+                        totalTime: 1,
+                        roundStartScore: 0,
+                        availableWords: []
+                      }))
+                      setEffectState({
+                        showExplosion: false,
+                        explosionSkippable: false,
+                        showDamage: false,
+                        showEnemyDamage: false,
+                        lastDamage: 0,
+                        showScoreEffect: false,
+                        lastScoreGain: 0,
+                        scoreEffectKey: 0
+                      })
+                    }}
                     disabled={showScoreSubmission}
                     className={`font-bold py-3 px-6 rounded-lg text-lg transition-colors ${
                       showScoreSubmission
