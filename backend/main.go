@@ -90,7 +90,8 @@ func setupRoutes(r *gin.Engine) {
 		{
 			game.POST("/score", submitScore)
 			game.GET("/leaderboard", getLeaderboard)
-			game.GET("/words/:round", getWords)
+			game.GET("/words/:category/:round", getWords)
+			game.GET("/categories", getCategories)
 		}
 	}
 	
@@ -105,7 +106,8 @@ func setupRoutes(r *gin.Engine) {
 		{
 			stageGame.POST("/score", submitScore)
 			stageGame.GET("/leaderboard", getLeaderboard)
-			stageGame.GET("/words/:round", getWords)
+			stageGame.GET("/words/:category/:round", getWords)
+			stageGame.GET("/categories", getCategories)
 		}
 	}
 }
@@ -192,23 +194,67 @@ func getLeaderboard(c *gin.Context) {
 }
 
 func getWords(c *gin.Context) {
+	category := c.Param("category")
 	roundStr := c.Param("round")
+	
+	// カテゴリーの検証
+	validCategories := []string{"food", "vehicle", "station"}
+	isValidCategory := false
+	for _, validCat := range validCategories {
+		if category == validCat {
+			isValidCategory = true
+			break
+		}
+	}
+	if !isValidCategory {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid category parameter"})
+		return
+	}
+	
 	round, err := strconv.Atoi(roundStr)
 	if err != nil || round < 1 || round > 5 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid round parameter"})
 		return
 	}
 
-	words, err := fetchWords(round)
+	words, err := fetchWords(category, round)
 	if err != nil {
-		log.Printf("Failed to fetch words for round %d: %v", round, err)
+		log.Printf("Failed to fetch words for category %s, round %d: %v", category, round, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch words"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"words": words,
+		"category": category,
 		"round": round,
+	})
+}
+
+func getCategories(c *gin.Context) {
+	categories := []map[string]interface{}{
+		{
+			"id":          "food",
+			"name":        "食べ物",
+			"description": "美味しい食べ物や飲み物の単語",
+			"icon":        "🍜",
+		},
+		{
+			"id":          "vehicle",
+			"name":        "乗り物",
+			"description": "車や電車、飛行機などの乗り物",
+			"icon":        "🚗",
+		},
+		{
+			"id":          "station",
+			"name":        "駅名",
+			"description": "日本全国の駅名",
+			"icon":        "🚉",
+		},
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"categories": categories,
 	})
 }
 
@@ -342,21 +388,22 @@ func fetchLeaderboard() ([]LeaderboardItem, error) {
 	return items, nil
 }
 
-func fetchWords(round int) ([]WordItem, error) {
+func fetchWords(category string, round int) ([]WordItem, error) {
 	wordsTable := os.Getenv("WORDS_TABLE_NAME")
 	if wordsTable == "" {
 		return nil, fmt.Errorf("WORDS_TABLE_NAME environment variable not set")
 	}
 
-	// GSIを使用してラウンド別に単語を取得
+	// カテゴリーとラウンドで単語を取得
 	result, err := dynamoClient.Query(context.TODO(), &dynamodb.QueryInput{
 		TableName: aws.String(wordsTable),
-		IndexName: aws.String("RoundIndex"),
-		KeyConditionExpression: aws.String("#round = :round"),
+		KeyConditionExpression: aws.String("category = :category"),
+		FilterExpression: aws.String("#round = :round"),
 		ExpressionAttributeNames: map[string]string{
 			"#round": "round",
 		},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":category": &types.AttributeValueMemberS{Value: category},
 			":round": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", round)},
 		},
 	})
@@ -371,7 +418,7 @@ func fetchWords(round int) ([]WordItem, error) {
 		return nil, fmt.Errorf("failed to unmarshal words: %w", err)
 	}
 
-	log.Printf("Successfully fetched %d words for round %d from DynamoDB", len(words), round)
+	log.Printf("Successfully fetched %d words for category %s, round %d from DynamoDB", len(words), category, round)
 	return words, nil
 }
 

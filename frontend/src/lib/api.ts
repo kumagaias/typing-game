@@ -24,11 +24,19 @@ export interface WordItem {
   type: 'normal' | 'bonus' | 'debuff';
 }
 
+export interface Category {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+}
+
 export interface ApiResponse<T> {
   data?: T;
   message?: string;
   leaderboard?: T;
   words?: T;
+  categories?: T;
 }
 
 class ApiClient {
@@ -93,8 +101,12 @@ class ApiClient {
     return this.request('/api/game/leaderboard');
   }
 
-  async getWords(round: number): Promise<ApiResponse<WordItem[]>> {
-    return this.request(`/api/game/words/${round}`);
+  async getWords(category: string, round: number): Promise<ApiResponse<WordItem[]>> {
+    return this.request(`/api/game/words/${category}/${round}`);
+  }
+
+  async getCategories(): Promise<ApiResponse<Category[]>> {
+    return this.request('/api/game/categories');
   }
 }
 

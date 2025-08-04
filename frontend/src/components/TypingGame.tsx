@@ -8,6 +8,7 @@ import EnemyDamageEffect from './EnemyDamageEffect'
 import ScoreEffect from './ScoreEffect'
 import Leaderboard from './Leaderboard'
 import ScoreSubmission from './ScoreSubmission'
+import CategorySelection from './CategorySelection'
 import { apiClient, WordItem } from '../lib/api'
 
 // ラウンド別の単語リスト（難易度アップ）
@@ -130,6 +131,7 @@ interface GameState {
   roundStartScore: number
   availableWords: WordItem[]
   wordsLoading: boolean
+  selectedCategory: string
 }
 
 interface EffectState {
@@ -164,7 +166,8 @@ export default function TypingGame() {
     totalTime: 1, // 最小1秒
     roundStartScore: 0,
     availableWords: [],
-    wordsLoading: false
+    wordsLoading: false,
+    selectedCategory: 'food'
   })
 
   const [effectState, setEffectState] = useState<EffectState>({
@@ -180,6 +183,7 @@ export default function TypingGame() {
 
   const [showLeaderboard, setShowLeaderboard] = useState(false)
   const [showScoreSubmission, setShowScoreSubmission] = useState(false)
+  const [showCategorySelection, setShowCategorySelection] = useState(false)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const [isComposing, setIsComposing] = useState(false)
@@ -203,23 +207,23 @@ export default function TypingGame() {
   }
 
   // 単語を取得する関数
-  const fetchWordsForRound = async (round: number) => {
+  const fetchWordsForRound = async (category: string, round: number) => {
     setGameState(prev => ({ ...prev, wordsLoading: true }))
     try {
-      const response = await apiClient.getWords(round)
+      const response = await apiClient.getWords(category, round)
       const words = response.words || []
       setGameState(prev => ({ 
         ...prev, 
         availableWords: words,
         wordsLoading: false 
       }))
-      console.log(`Loaded ${words.length} words for round ${round}`)
+      console.log(`Loaded ${words.length} words for category ${category}, round ${round}`)
     } catch (error) {
-      console.error(`Failed to fetch words for round ${round}:`, error)
+      console.error(`Failed to fetch words for category ${category}, round ${round}:`, error)
       // フォールバック: ハードコードされた単語を使用
       const fallbackWords = FOOD_WORDS[round as keyof typeof FOOD_WORDS] || []
       const wordItems: WordItem[] = fallbackWords.map((word, index) => ({
-        category: 'food',
+        category: category,
         word_id: `fallback_${round}_${index}`,
         word: word,
         round: round,
@@ -280,7 +284,7 @@ export default function TypingGame() {
   // ゲーム開始
   const startRound = useCallback(() => {
     // まず単語を取得してからゲームを開始
-    fetchWordsForRound(gameState.round).then(() => {
+    fetchWordsForRound(gameState.selectedCategory, gameState.round).then(() => {
       setGameState(prev => {
         const timeLimit = ENEMY_DATA[prev.round as keyof typeof ENEMY_DATA].timeLimit
         const wordData = generateRandomWord(prev.lastWord)
@@ -699,7 +703,8 @@ export default function TypingGame() {
       totalTime: 1, // 最小1秒
       roundStartScore: 0,
       availableWords: [],
-      wordsLoading: false
+      wordsLoading: false,
+      selectedCategory: 'food'
     })
     setEffectState({
       showExplosion: false,
@@ -741,6 +746,17 @@ export default function TypingGame() {
               }`}
             >
               🏆 ランキング
+            </button>
+            <button
+              onClick={() => setShowCategorySelection(true)}
+              disabled={showScoreSubmission || gameState.gameStatus === 'playing'}
+              className={`font-bold py-2 px-4 rounded-lg text-sm transition-colors ${
+                showScoreSubmission || gameState.gameStatus === 'playing'
+                  ? 'bg-gray-400 cursor-not-allowed text-white'
+                  : 'bg-purple-500 hover:bg-purple-600 text-white'
+              }`}
+            >
+              🎯 カテゴリー
             </button>
             <h1 className="text-3xl font-bold text-white drop-shadow-lg">
               タイピングゲーム
@@ -1119,6 +1135,15 @@ export default function TypingGame() {
           resetGameDirectly()
         }}
         currentScore={gameState.score}
+      />
+
+      {/* カテゴリー選択 */}
+      <CategorySelection
+        isVisible={showCategorySelection}
+        onCategorySelect={(categoryId) => {
+          setGameState(prev => ({ ...prev, selectedCategory: categoryId }))
+        }}
+        onClose={() => setShowCategorySelection(false)}
       />
 
       {/* スコア送信 */}
