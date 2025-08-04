@@ -89,7 +89,7 @@ export default function CategorySelection({ isVisible, onCategorySelect, onClose
         {!loading && !error && (
           <div className="space-y-3">
             <p className="text-gray-600 text-center mb-4">
-              挑戦したいカテゴリーを選択してください
+              カテゴリーを選ぶとすぐにゲームが開始されます
             </p>
             
             {categories.map((category) => (

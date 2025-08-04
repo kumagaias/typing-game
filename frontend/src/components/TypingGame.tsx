@@ -890,7 +890,7 @@ export default function TypingGame() {
                     🎯 カテゴリーを選択してください
                   </h2>
                   <p className="text-white drop-shadow-lg">
-                    挑戦したいカテゴリーを選んでゲームを開始しましょう！
+                    カテゴリーを選ぶと自動的にゲームが開始されます！
                   </p>
                 </div>
                 <button
@@ -1275,7 +1275,6 @@ export default function TypingGame() {
             ...prev, 
             selectedCategory: categoryId,
             availableWords: [], // 単語をクリア
-            gameStatus: 'waiting', // カテゴリー選択後は待機状態に
             round: 1,
             score: 0,
             playerHP: 100,
@@ -1283,6 +1282,7 @@ export default function TypingGame() {
             currentWord: '',
             userInput: '',
             timeLeft: 45,
+            gameStatus: 'waiting', // 一時的に待機状態に
             winner: null,
             wordsCompleted: 0,
             combo: 0,
@@ -1294,6 +1294,43 @@ export default function TypingGame() {
             totalTime: 1,
             roundStartScore: 0
           }))
+          
+          // カテゴリー選択後、少し待ってからゲームを自動開始
+          setTimeout(() => {
+            console.log(`Auto-starting game with category: ${categoryId}`)
+            fetchWordsForRound(categoryId, 1).then(() => {
+              setGameState(prev => {
+                const timeLimit = ENEMY_DATA[1].timeLimit
+                const wordData = generateRandomWord('')
+                const newWord = typeof wordData === 'string' ? wordData : wordData.word
+                return {
+                  ...prev,
+                  currentWord: newWord,
+                  userInput: '',
+                  timeLeft: timeLimit,
+                  gameStatus: 'playing',
+                  wordsCompleted: 0,
+                  combo: 0,
+                  isSpecialWord: typeof wordData !== 'string',
+                  specialType: typeof wordData === 'string' ? 'normal' : wordData.type,
+                  lastWord: newWord,
+                  roundStartTime: Date.now(),
+                  roundStartScore: prev.score
+                }
+              })
+              
+              // 入力フィールドにフォーカス
+              setTimeout(() => {
+                if (inputRef.current) {
+                  try {
+                    inputRef.current.focus()
+                  } catch (error) {
+                    console.warn('Failed to focus input:', error)
+                  }
+                }
+              }, 100)
+            })
+          }, 500) // 0.5秒後に自動開始
         }}
         onClose={() => setShowCategorySelection(false)}
       />
