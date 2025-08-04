@@ -220,8 +220,21 @@ export default function TypingGame() {
       console.log(`Loaded ${words.length} words for category ${category}, round ${round}`)
     } catch (error) {
       console.error(`Failed to fetch words for category ${category}, round ${round}:`, error)
-      // フォールバック: ハードコードされた単語を使用
-      const fallbackWords = FOOD_WORDS[round as keyof typeof FOOD_WORDS] || []
+      // フォールバック: カテゴリーに応じたハードコードされた単語を使用
+      let fallbackWords: string[] = []
+      if (category === 'food') {
+        fallbackWords = FOOD_WORDS[round as keyof typeof FOOD_WORDS] || []
+      } else if (category === 'vehicle') {
+        // 乗り物のフォールバック単語（基本的なもの）
+        fallbackWords = ['くるま', 'でんしゃ', 'ばす', 'ひこうき', 'ふね']
+      } else if (category === 'station') {
+        // 駅名のフォールバック単語（基本的なもの）
+        fallbackWords = ['とうきょう', 'しんじゅく', 'しぶや', 'いけぶくろ', 'うえの']
+      } else {
+        // デフォルトは食べ物
+        fallbackWords = FOOD_WORDS[round as keyof typeof FOOD_WORDS] || []
+      }
+      
       const wordItems: WordItem[] = fallbackWords.map((word, index) => ({
         category: category,
         word_id: `fallback_${round}_${index}`,
@@ -283,6 +296,7 @@ export default function TypingGame() {
 
   // ゲーム開始
   const startRound = useCallback(() => {
+    console.log(`Starting round ${gameState.round} with category: ${gameState.selectedCategory}`)
     // まず単語を取得してからゲームを開始
     fetchWordsForRound(gameState.selectedCategory, gameState.round).then(() => {
       setGameState(prev => {
@@ -1141,7 +1155,30 @@ export default function TypingGame() {
       <CategorySelection
         isVisible={showCategorySelection}
         onCategorySelect={(categoryId) => {
-          setGameState(prev => ({ ...prev, selectedCategory: categoryId }))
+          console.log(`Category selected: ${categoryId}`)
+          setGameState(prev => ({ 
+            ...prev, 
+            selectedCategory: categoryId,
+            availableWords: [], // 単語をクリア
+            gameStatus: 'waiting', // ゲーム状態をリセット
+            round: 1,
+            score: 0,
+            playerHP: 100,
+            enemyHP: ENEMY_DATA[1].maxHP,
+            currentWord: '',
+            userInput: '',
+            timeLeft: 45,
+            winner: null,
+            wordsCompleted: 0,
+            combo: 0,
+            isSpecialWord: false,
+            specialType: 'normal',
+            lastWord: '',
+            maxCombo: 0,
+            roundStartTime: 0,
+            totalTime: 1,
+            roundStartScore: 0
+          }))
         }}
         onClose={() => setShowCategorySelection(false)}
       />
