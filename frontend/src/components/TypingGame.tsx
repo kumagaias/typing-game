@@ -132,6 +132,7 @@ interface GameState {
   availableWords: WordItem[]
   wordsLoading: boolean
   selectedCategory: string
+  selectedLanguage: 'jp' | 'en'
 }
 
 interface EffectState {
@@ -167,7 +168,8 @@ export default function TypingGame() {
     roundStartScore: 0,
     availableWords: [],
     wordsLoading: false,
-    selectedCategory: ''
+    selectedCategory: '',
+    selectedLanguage: 'jp'
   })
 
   const [effectState, setEffectState] = useState<EffectState>({
@@ -207,7 +209,7 @@ export default function TypingGame() {
   }
 
   // 単語を取得する関数
-  const fetchWordsForRound = async (category: string, round: number): Promise<void> => {
+  const fetchWordsForRound = async (category: string, round: number, language: 'jp' | 'en' = 'jp'): Promise<void> => {
     if (!category) {
       console.warn('No category selected')
       return
@@ -215,34 +217,105 @@ export default function TypingGame() {
     
     setGameState(prev => ({ ...prev, wordsLoading: true }))
     try {
-      const response = await apiClient.getWords(category, round)
-      const words = response.words || []
+      // 言語パラメータ付きでAPIを呼び出し
+      console.log(`Fetching words for ${category}, round ${round}, language ${language}`)
+      const response = await apiClient.getWords(category, round, language)
+      const allWords = response.words || []
+      
+      // 特殊単語も取得（specialカテゴリー）
+      try {
+        const specialResponse = await apiClient.getWords('special', 0, language)
+        const specialWords = specialResponse.words || []
+        console.log(`Fetched ${specialWords.length} special words`)
+        allWords.push(...specialWords)
+      } catch (error) {
+        console.warn('Failed to fetch special words:', error)
+      }
+      
+      // 言語でフィルタリング（バックエンドが対応していない場合の対策）
+      console.log(`API returned ${allWords.length} words for ${category} round ${round}`)
+      console.log('Sample words:', allWords.slice(0, 3))
+      
+      // 言語プロパティを持つ単語の数をチェック
+      const wordsWithLanguage = allWords.filter(word => word.language)
+      console.log(`Words with language property: ${wordsWithLanguage.length}`)
+      
+      let filteredWords = allWords
+      
+      // 言語プロパティを持つ単語が存在する場合のみフィルタリング
+      if (wordsWithLanguage.length > 0) {
+        filteredWords = allWords.filter(word => word.language === language)
+        console.log(`After filtering for ${language}: ${filteredWords.length} words`)
+        
+        // 指定言語の単語がない場合は、言語プロパティを持つすべての単語を表示
+        if (filteredWords.length === 0) {
+          console.warn(`No words found for ${language}, showing available languages:`)
+          const languageSet = new Set(wordsWithLanguage.map(w => w.language))
+          const availableLanguages = Array.from(languageSet)
+          console.log('Available languages:', availableLanguages)
+        }
+      } else {
+        console.log('Words do not have language property, inferring language from content')
+        
+        // 単語の内容から言語を推定してフィルタリング
+        filteredWords = allWords.filter(word => {
+          const isJapanese = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(word.word)
+          const isEnglish = /^[a-zA-Z\s]+$/.test(word.word)
+          
+          if (language === 'jp') {
+            return isJapanese
+          } else if (language === 'en') {
+            return isEnglish
+          }
+          return false
+        })
+        
+        console.log(`After language inference for ${language}: ${filteredWords.length} words`)
+        console.log('Sample filtered words:', filteredWords.slice(0, 3).map(w => w.word))
+      }
+      
+      // フィルタリング後に単語がない場合はフォールバックを使用
+      if (filteredWords.length === 0) {
+        console.warn(`No words found for language ${language}, using fallback`)
+        throw new Error('No words found for selected language')
+      }
       
       return new Promise((resolve) => {
         setGameState(prev => ({ 
           ...prev, 
-          availableWords: words,
+          availableWords: filteredWords,
           wordsLoading: false 
         }))
-        console.log(`Loaded ${words.length} words for category ${category}, round ${round}`)
+        console.log(`Loaded ${filteredWords.length} words for category ${category}, round ${round}, language ${language}`)
         // 状態更新完了を待つ
         setTimeout(resolve, 50)
       })
     } catch (error) {
       console.error(`Failed to fetch words for category ${category}, round ${round}:`, error)
-      // フォールバック: カテゴリーに応じたハードコードされた単語を使用
+      // フォールバック: カテゴリーと言語に応じたハードコードされた単語を使用
       let fallbackWords: string[] = []
-      if (category === 'food') {
-        fallbackWords = FOOD_WORDS[round as keyof typeof FOOD_WORDS] || []
-      } else if (category === 'vehicle') {
-        // 乗り物のフォールバック単語（基本的なもの）
-        fallbackWords = ['くるま', 'でんしゃ', 'ばす', 'ひこうき', 'ふね']
-      } else if (category === 'station') {
-        // 駅名のフォールバック単語（基本的なもの）
-        fallbackWords = ['とうきょう', 'しんじゅく', 'しぶや', 'いけぶくろ', 'うえの']
+      
+      if (language === 'jp') {
+        if (category === 'food') {
+          fallbackWords = FOOD_WORDS[round as keyof typeof FOOD_WORDS] || []
+        } else if (category === 'vehicle') {
+          fallbackWords = ['くるま', 'でんしゃ', 'ばす', 'ひこうき', 'ふね']
+        } else if (category === 'station') {
+          fallbackWords = ['とうきょう', 'しんじゅく', 'しぶや', 'いけぶくろ', 'うえの']
+        } else {
+          fallbackWords = FOOD_WORDS[round as keyof typeof FOOD_WORDS] || []
+        }
       } else {
-        // デフォルトは食べ物
-        fallbackWords = FOOD_WORDS[round as keyof typeof FOOD_WORDS] || []
+        // 英語のフォールバック単語
+        if (category === 'food') {
+          fallbackWords = ['rice', 'bread', 'meat', 'fish', 'egg', 'milk', 'water', 'tea']
+        } else if (category === 'vehicle') {
+          fallbackWords = ['car', 'train', 'bus', 'plane', 'ship']
+        } else if (category === 'station') {
+          fallbackWords = ['tokyo', 'osaka', 'kyoto', 'yokohama', 'nagoya']
+        } else {
+          fallbackWords = ['rice', 'bread', 'meat', 'fish', 'egg']
+        }
       }
       
       const wordItems: WordItem[] = fallbackWords.map((word, index) => ({
@@ -250,7 +323,8 @@ export default function TypingGame() {
         word_id: `fallback_${round}_${index}`,
         word: word,
         round: round,
-        type: 'normal' as const
+        type: 'normal' as const,
+        language: language
       }))
       
       return new Promise((resolve) => {
@@ -267,6 +341,7 @@ export default function TypingGame() {
 
   // ランダムな単語を生成（特殊効果付き、重複回避）
   const generateRandomWord = useCallback((lastWord: string = '') => {
+    console.log(`generateRandomWord called, available words: ${gameState.availableWords.length}`)
     if (gameState.availableWords.length === 0) {
       console.warn('No words available for current round')
       return { word: 'えらー', type: 'normal' as const }
@@ -276,6 +351,10 @@ export default function TypingGame() {
     const normalWords = gameState.availableWords.filter(w => w.type === 'normal')
     const bonusWords = gameState.availableWords.filter(w => w.type === 'bonus')
     const debuffWords = gameState.availableWords.filter(w => w.type === 'debuff')
+    
+    console.log(`Word counts - normal: ${normalWords.length}, bonus: ${bonusWords.length}, debuff: ${debuffWords.length}`)
+    console.log('Sample normal words:', normalWords.slice(0, 3).map(w => `${w.word}(${w.language})`))
+    console.log('Sample bonus words:', bonusWords.slice(0, 3).map(w => `${w.word}(${w.language})`))
     
     let selectedWord: WordItem
     let wordType: 'normal' | 'bonus' | 'debuff' = 'normal'
@@ -313,7 +392,7 @@ export default function TypingGame() {
   const startRound = useCallback(() => {
     console.log(`Starting round ${gameState.round} with category: ${gameState.selectedCategory}`)
     // まず単語を取得してからゲームを開始
-    fetchWordsForRound(gameState.selectedCategory, gameState.round).then(() => {
+    fetchWordsForRound(gameState.selectedCategory, gameState.round, gameState.selectedLanguage).then(() => {
       setGameState(prev => {
         const timeLimit = ENEMY_DATA[prev.round as keyof typeof ENEMY_DATA].timeLimit
         const wordData = generateRandomWord(prev.lastWord)
@@ -735,7 +814,8 @@ export default function TypingGame() {
       roundStartScore: 0,
       availableWords: [],
       wordsLoading: false,
-      selectedCategory: ''
+      selectedCategory: '',
+      selectedLanguage: 'jp'
     })
     setEffectState({
       showExplosion: false,
@@ -1279,6 +1359,10 @@ export default function TypingGame() {
       {/* カテゴリー選択 */}
       <CategorySelection
         isVisible={showCategorySelection}
+        selectedLanguage={gameState.selectedLanguage}
+        onLanguageChange={(language) => {
+          setGameState(prev => ({ ...prev, selectedLanguage: language }))
+        }}
         onCategorySelect={(categoryId) => {
           console.log(`Category selected: ${categoryId}`)
           setGameState(prev => ({ 
@@ -1310,7 +1394,7 @@ export default function TypingGame() {
             console.log(`Auto-starting game with category: ${categoryId}`)
             
             // まず単語を取得
-            await fetchWordsForRound(categoryId, 1)
+            await fetchWordsForRound(categoryId, 1, gameState.selectedLanguage)
             
             // 単語取得完了後にゲーム開始
             setGameState(prev => {

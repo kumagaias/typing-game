@@ -24,6 +24,7 @@ export interface WordItem {
   word: string;
   round: number;
   type: 'normal' | 'bonus' | 'debuff';
+  language: 'jp' | 'en';
 }
 
 export interface Category {
@@ -103,8 +104,11 @@ class ApiClient {
     return this.request('/api/game/leaderboard');
   }
 
-  async getWords(category: string, round: number): Promise<ApiResponse<WordItem[]>> {
-    return this.request(`/api/game/words/${category}/${round}`);
+  async getWords(category: string, round: number, language?: 'jp' | 'en'): Promise<ApiResponse<WordItem[]>> {
+    const url = language 
+      ? `/api/game/words/${category}/${round}?language=${language}`
+      : `/api/game/words/${category}/${round}`;
+    return this.request(url);
   }
 
   async getCategories(): Promise<ApiResponse<Category[]>> {
