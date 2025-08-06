@@ -146,6 +146,65 @@ interface EffectState {
   scoreEffectKey: number
 }
 
+// 多言語テキスト
+type TextKey = 'round' | 'score' | 'combo' | 'timeLeft' | 'seconds' | 'victory' | 'defeat' | 
+              'gameStart' | 'roundStart' | 'categorySelect' | 'nextRound' | 'retry' | 
+              'gameComplete' | 'bonusEffect' | 'debuffEffect' | 'instructions' | 'comboTip' | 
+              'wordsCompleted' | 'enemyDefeated' | 'timeLimit' | 'allEnemiesDefeated'
+
+const getLocalizedText = (key: TextKey, language: 'jp' | 'en'): string => {
+  const texts: Record<'jp' | 'en', Record<TextKey, string>> = {
+    jp: {
+      round: 'ラウンド',
+      score: 'スコア',
+      combo: 'コンボ',
+      timeLeft: '残り時間',
+      seconds: '秒',
+      victory: '勝利！',
+      defeat: '敗北...',
+      gameStart: 'ゲーム開始',
+      roundStart: 'ラウンド {round} 開始！',
+      categorySelect: 'カテゴリーを選択してください',
+      nextRound: '次のラウンドへ',
+      retry: 'リトライ',
+      gameComplete: '全ラウンドクリア！',
+      bonusEffect: 'ボーナス: 大ダメージ + HP回復 + 時間ボーナス',
+      debuffEffect: 'デバフ: 低ダメージ',
+      instructions: '💡 変換確定時に自動判定 / Enter でも判定',
+      comboTip: '🔥 コンボ3以上でボーナス ✨ 緑=ボーナス ⚠️ 赤=デバフ',
+      wordsCompleted: '単語',
+      enemyDefeated: '撃破',
+      timeLimit: '時間',
+      allEnemiesDefeated: '全敵撃破！'
+    },
+    en: {
+      round: 'Round',
+      score: 'Score',
+      combo: 'Combo',
+      timeLeft: 'Time Left',
+      seconds: 's',
+      victory: 'Victory!',
+      defeat: 'Defeat...',
+      gameStart: 'Start Game',
+      roundStart: 'Start Round {round}!',
+      categorySelect: 'Please select a category',
+      nextRound: 'Next Round',
+      retry: 'Retry',
+      gameComplete: 'All Rounds Complete!',
+      bonusEffect: 'Bonus: High Damage + HP Recovery + Time Bonus',
+      debuffEffect: 'Debuff: Low Damage',
+      instructions: '💡 Auto-judge on conversion / Press Enter to judge',
+      comboTip: '🔥 Combo 3+ for bonus ✨ Green=Bonus ⚠️ Red=Debuff',
+      wordsCompleted: 'Words',
+      enemyDefeated: 'Defeated',
+      timeLimit: 'Time',
+      allEnemiesDefeated: 'All Enemies Defeated!'
+    }
+  }
+  
+  return texts[language][key] || texts.jp[key]
+}
+
 export default function TypingGame() {
   const [gameState, setGameState] = useState<GameState>({
     round: 1,
@@ -670,9 +729,18 @@ export default function TypingGame() {
         return
       }
 
-      // スペースキーでゲーム進行
+      // スペースキーの処理
       if (e.code === 'Space') {
-        e.preventDefault() // スクロールを防ぐ
+        // ゲーム中で英語の単語にスペースが含まれている場合は、スペース入力を許可
+        if (gameState.gameStatus === 'playing' && 
+            gameState.selectedLanguage === 'en' && 
+            gameState.currentWord.includes(' ')) {
+          // スペース入力を許可（preventDefaultしない）
+          return
+        }
+        
+        // その他の場合はスクロールを防ぐ
+        e.preventDefault()
 
         if (gameState.gameStatus === 'categorySelection') {
           setShowCategorySelection(true)
@@ -876,9 +944,11 @@ export default function TypingGame() {
 
           {/* ラウンド表示 */}
           <div className="text-center mb-4">
-            <h2 className="text-xl font-semibold text-white drop-shadow-lg">ラウンド {gameState.round}/5</h2>
+            <h2 className="text-xl font-semibold text-white drop-shadow-lg">
+              {getLocalizedText('round', gameState.selectedLanguage)} {gameState.round}/5
+            </h2>
             <p className="text-base mt-1 text-white drop-shadow-lg relative">
-              スコア: <span className="text-green-300">{(gameState.score || 0).toLocaleString()}</span>
+              {getLocalizedText('score', gameState.selectedLanguage)}: <span className="text-green-300">{(gameState.score || 0).toLocaleString()}</span>
               <ScoreEffect
                 key={effectState.scoreEffectKey}
                 scoreGain={effectState.lastScoreGain}
@@ -1045,7 +1115,7 @@ export default function TypingGame() {
                           : 'bg-blue-500 hover:bg-blue-700 text-white'
                       }`}
                     >
-                      ラウンド {gameState.round} 開始！
+                      {getLocalizedText('roundStart', gameState.selectedLanguage).replace('{round}', gameState.round.toString())}
                     </button>
                     <div className="mt-2 text-sm text-white drop-shadow-lg">
                       💡 スペースキーでも開始できます
@@ -1058,8 +1128,12 @@ export default function TypingGame() {
             {gameState.gameStatus === 'playing' && (
               <div className="text-center">
                 <div className="mb-3">
-                  <span className="text-base text-white drop-shadow-lg">残り時間: </span>
-                  <span className="text-xl font-bold text-red-400 drop-shadow-lg">{gameState.timeLeft}秒</span>
+                  <span className="text-base text-white drop-shadow-lg">
+                    {getLocalizedText('timeLeft', gameState.selectedLanguage)}: 
+                  </span>
+                  <span className="text-xl font-bold text-red-400 drop-shadow-lg">
+                    {gameState.timeLeft}{getLocalizedText('seconds', gameState.selectedLanguage)}
+                  </span>
                 </div>
                 <div className="mb-3 flex justify-center space-x-3">
                   <div>
@@ -1067,7 +1141,9 @@ export default function TypingGame() {
                     <span className="text-base font-bold text-white drop-shadow-lg">{gameState.wordsCompleted}</span>
                   </div>
                   <div>
-                    <span className="text-xs text-white drop-shadow-lg">コンボ: </span>
+                    <span className="text-xs text-white drop-shadow-lg">
+                      {getLocalizedText('combo', gameState.selectedLanguage)}: 
+                    </span>
                     <span className={`text-base font-bold drop-shadow-lg ${gameState.combo >= 3 ? 'text-yellow-300' : 'text-blue-300'}`}>
                       {gameState.combo}
                       {gameState.combo >= 3 && '🔥'}
@@ -1088,7 +1164,7 @@ export default function TypingGame() {
                   </div>
                   {gameState.specialType === 'bonus' && (
                     <div className="text-xs text-green-600 mb-2">
-                      🎁 ボーナス: 大ダメージ + HP回復 + 時間ボーナス
+                      🎁 {getLocalizedText('bonusEffect', gameState.selectedLanguage)}
                     </div>
                   )}
                   {gameState.specialType === 'debuff' && (
@@ -1116,8 +1192,8 @@ export default function TypingGame() {
                   autoFocus
                 />
                 <div className="mt-2 text-xs text-white drop-shadow-lg space-y-1">
-                  <div>💡 変換確定時に自動判定 / Enter でも判定</div>
-                  <div>🔥 コンボ3以上でボーナス ✨ 緑=ボーナス ⚠️ 赤=デバフ</div>
+                  <div>{getLocalizedText('instructions', gameState.selectedLanguage)}</div>
+                  <div>{getLocalizedText('comboTip', gameState.selectedLanguage)}</div>
                 </div>
               </div>
             )}
@@ -1126,7 +1202,9 @@ export default function TypingGame() {
               <div className="text-center">
                 {gameState.winner === 'player' ? (
                   <div>
-                    <h3 className="text-2xl font-bold mb-4 text-green-600">🎉 勝利！</h3>
+                    <h3 className="text-2xl font-bold mb-4 text-green-600">
+                      🎉 {getLocalizedText('victory', gameState.selectedLanguage)}
+                    </h3>
 
                     <div className="flex justify-center space-x-4 mb-4">
                       {/* 倒した敵の情報 */}
