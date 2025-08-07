@@ -7,12 +7,51 @@ interface LeaderboardProps {
   isVisible: boolean
   onClose: () => void
   currentScore?: number
+  language?: 'jp' | 'en'
 }
 
-export default function Leaderboard({ isVisible, onClose, currentScore }: LeaderboardProps) {
+export default function Leaderboard({ isVisible, onClose, currentScore, language = 'jp' }: LeaderboardProps) {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // 多言語テキスト
+  const texts = {
+    jp: {
+      title: '🏆 リーダーボード',
+      loading: '読み込み中...',
+      error: 'リーダーボードの取得に失敗しました',
+      retry: '再試行',
+      noScores: 'まだスコアが登録されていません',
+      close: '閉じる',
+      round: 'ラウンド',
+      below11: '11位以下',
+      food: '🍜 食べ物',
+      vehicle: '🚗 乗り物',
+      station: '🚉 駅名',
+      foodShort: '🍜食べ物',
+      vehicleShort: '🚗乗り物',
+      stationShort: '🚉駅名'
+    },
+    en: {
+      title: '🏆 Leaderboard',
+      loading: 'Loading...',
+      error: 'Failed to fetch leaderboard',
+      retry: 'Retry',
+      noScores: 'No scores registered yet',
+      close: 'Close',
+      round: 'Round',
+      below11: 'Rank 11+',
+      food: '🍜 Food',
+      vehicle: '🚗 Vehicle',
+      station: '🚉 Station',
+      foodShort: '🍜Food',
+      vehicleShort: '🚗Vehicle',
+      stationShort: '🚉Station'
+    }
+  }
+
+  const getText = (key: keyof typeof texts.jp) => texts[language][key]
 
   useEffect(() => {
     if (isVisible) {
@@ -38,7 +77,7 @@ export default function Leaderboard({ isVisible, onClose, currentScore }: Leader
       
       setLeaderboard(validatedLeaderboard)
     } catch (err) {
-      setError('リーダーボードの取得に失敗しました')
+      setError(getText('error'))
       console.error('Failed to fetch leaderboard:', err)
     } finally {
       setLoading(false)
@@ -51,7 +90,7 @@ export default function Leaderboard({ isVisible, onClose, currentScore }: Leader
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 max-h-[80vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-bold text-gray-800">🏆 リーダーボード</h2>
+          <h2 className="text-2xl font-bold text-gray-800">{getText('title')}</h2>
           <button
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700 text-2xl"
@@ -63,7 +102,7 @@ export default function Leaderboard({ isVisible, onClose, currentScore }: Leader
         {loading && (
           <div className="text-center py-4">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-            <p className="mt-2 text-gray-600">読み込み中...</p>
+            <p className="mt-2 text-gray-600">{getText('loading')}</p>
           </div>
         )}
 
@@ -74,7 +113,7 @@ export default function Leaderboard({ isVisible, onClose, currentScore }: Leader
               onClick={fetchLeaderboard}
               className="bg-blue-500 hover:bg-blue-700 text-white px-4 py-2 rounded"
             >
-              再試行
+              {getText('retry')}
             </button>
           </div>
         )}
@@ -83,7 +122,7 @@ export default function Leaderboard({ isVisible, onClose, currentScore }: Leader
           <div className="space-y-2">
             {leaderboard.length === 0 ? (
               <p className="text-center text-gray-600 py-4">
-                まだスコアが登録されていません
+                {getText('noScores')}
               </p>
             ) : (
               <>
@@ -111,9 +150,9 @@ export default function Leaderboard({ isVisible, onClose, currentScore }: Leader
                           {entry.player_name}
                         </div>
                         <div className="text-sm text-gray-600">
-                          {entry.category === 'food' ? '🍜 食べ物' : 
-                           entry.category === 'vehicle' ? '🚗 乗り物' : 
-                           entry.category === 'station' ? '🚉 駅名' : '🍜 食べ物'} ・ ラウンド {entry.round}
+                          {entry.category === 'food' ? getText('food') : 
+                           entry.category === 'vehicle' ? getText('vehicle') : 
+                           entry.category === 'station' ? getText('station') : getText('food')} ・ {getText('round')} {entry.round}
                         </div>
                       </div>
                     </div>
@@ -129,7 +168,7 @@ export default function Leaderboard({ isVisible, onClose, currentScore }: Leader
                 {/* 11-30位 - 簡素な表示 */}
                 {leaderboard.length > 10 && (
                   <div className="mt-4">
-                    <div className="text-sm text-gray-500 mb-2 px-2">11位以下</div>
+                    <div className="text-sm text-gray-500 mb-2 px-2">{getText('below11')}</div>
                     <div className="space-y-1">
                       {leaderboard.slice(10, 30).map((entry, index) => (
                         <div
@@ -148,9 +187,9 @@ export default function Leaderboard({ isVisible, onClose, currentScore }: Leader
                               {entry.player_name}
                             </span>
                             <span className="text-xs text-gray-500">
-                              {entry.category === 'food' ? '🍜食べ物' : 
-                               entry.category === 'vehicle' ? '🚗乗り物' : 
-                               entry.category === 'station' ? '🚉駅名' : '🍜食べ物'}・R{entry.round}
+                              {entry.category === 'food' ? getText('foodShort') : 
+                               entry.category === 'vehicle' ? getText('vehicleShort') : 
+                               entry.category === 'station' ? getText('stationShort') : getText('foodShort')}・R{entry.round}
                             </span>
                           </div>
                           <div className="text-gray-600 font-medium">
@@ -171,7 +210,7 @@ export default function Leaderboard({ isVisible, onClose, currentScore }: Leader
             onClick={onClose}
             className="bg-gray-500 hover:bg-gray-700 text-white px-6 py-2 rounded-lg"
           >
-            閉じる
+            {getText('close')}
           </button>
         </div>
       </div>

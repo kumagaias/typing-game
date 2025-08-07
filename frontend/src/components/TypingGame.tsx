@@ -61,7 +61,7 @@ const ENEMY_DATA = {
   1: {
     icon: '👹',
     defeatedIcon: '❌',
-    name: '初級の鬼',
+    name: { jp: '初級の鬼', en: 'Beginner Oni' },
     timeLimit: 50,
     maxHP: 100,
     backgroundImage: '/images/background/mountain.png',
@@ -71,7 +71,7 @@ const ENEMY_DATA = {
   2: {
     icon: '🐺',
     defeatedIcon: '❌',
-    name: '野獣の狼',
+    name: { jp: '野獣の狼', en: 'Beast Wolf' },
     timeLimit: 45,
     maxHP: 120,
     backgroundImage: '/images/background/mountain.png',
@@ -81,7 +81,7 @@ const ENEMY_DATA = {
   3: {
     icon: '🐉',
     defeatedIcon: '❌',
-    name: '古龍',
+    name: { jp: '古龍', en: 'Ancient Dragon' },
     timeLimit: 40,
     maxHP: 150,
     backgroundImage: '/images/background/mountain.png',
@@ -91,7 +91,7 @@ const ENEMY_DATA = {
   4: {
     icon: '⚡',
     defeatedIcon: '❌',
-    name: '雷神',
+    name: { jp: '雷神', en: 'Thunder God' },
     timeLimit: 35,
     maxHP: 200,
     backgroundImage: '/images/background/mountain.png',
@@ -101,7 +101,7 @@ const ENEMY_DATA = {
   5: {
     icon: '🌟',
     defeatedIcon: '❌',
-    name: '星の支配者',
+    name: { jp: '星の支配者', en: 'Star Ruler' },
     timeLimit: 30,
     maxHP: 300,
     backgroundImage: '/images/background/mountain.png',
@@ -150,7 +150,9 @@ interface EffectState {
 type TextKey = 'round' | 'score' | 'combo' | 'timeLeft' | 'seconds' | 'victory' | 'defeat' | 
               'gameStart' | 'roundStart' | 'categorySelect' | 'nextRound' | 'retry' | 
               'gameComplete' | 'bonusEffect' | 'debuffEffect' | 'instructions' | 'comboTip' | 
-              'wordsCompleted' | 'enemyDefeated' | 'timeLimit' | 'allEnemiesDefeated'
+              'wordsCompleted' | 'timeLimit' | 'allEnemiesDefeated' |
+              'defeatedEnemy' | 'nextEnemy' | 'hp' | 'defeated' | 'words' | 'completed' | 'placeholder' |
+              'typingGameRanking' | 'player' | 'time' | 'spaceKeyTip' | 'nextRoundButton' | 'gameCompleteButton'
 
 const getLocalizedText = (key: TextKey, language: 'jp' | 'en'): string => {
   const texts: Record<'jp' | 'en', Record<TextKey, string>> = {
@@ -173,9 +175,21 @@ const getLocalizedText = (key: TextKey, language: 'jp' | 'en'): string => {
       instructions: '💡 変換確定時に自動判定 / Enter でも判定',
       comboTip: '🔥 コンボ3以上でボーナス ✨ 緑=ボーナス ⚠️ 赤=デバフ',
       wordsCompleted: '単語',
-      enemyDefeated: '撃破',
       timeLimit: '時間',
-      allEnemiesDefeated: '全敵撃破！'
+      allEnemiesDefeated: '全敵撃破！',
+      defeatedEnemy: '倒した敵',
+      nextEnemy: '次の敵',
+      hp: 'HP',
+      defeated: '撃破',
+      words: '単語',
+      completed: '完了',
+      placeholder: 'ここにタイピング...',
+      typingGameRanking: 'タイピングゲームランキング',
+      player: 'プレイヤー',
+      time: '時間',
+      spaceKeyTip: '💡 スペースキーでも進めます',
+      nextRoundButton: '⚔️ 次のラウンドへ',
+      gameCompleteButton: '🏆 ゲーム完了'
     },
     en: {
       round: 'Round',
@@ -196,9 +210,21 @@ const getLocalizedText = (key: TextKey, language: 'jp' | 'en'): string => {
       instructions: '💡 Auto-judge on conversion / Press Enter to judge',
       comboTip: '🔥 Combo 3+ for bonus ✨ Green=Bonus ⚠️ Red=Debuff',
       wordsCompleted: 'Words',
-      enemyDefeated: 'Defeated',
       timeLimit: 'Time',
-      allEnemiesDefeated: 'All Enemies Defeated!'
+      allEnemiesDefeated: 'All Enemies Defeated!',
+      defeatedEnemy: 'Defeated Enemy',
+      nextEnemy: 'Next Enemy',
+      hp: 'HP',
+      defeated: 'Defeated',
+      words: 'Words',
+      completed: 'Completed',
+      placeholder: 'Type here...',
+      typingGameRanking: 'Typing Game Ranking',
+      player: 'Player',
+      time: 'Time',
+      spaceKeyTip: '💡 Press Space to continue',
+      nextRoundButton: '⚔️ Next Round',
+      gameCompleteButton: '🏆 Game Complete'
     }
   }
   
@@ -729,17 +755,14 @@ export default function TypingGame() {
         return
       }
 
+      // 入力フィールドにフォーカスがある場合は、グローバルイベントを無視
+      if (document.activeElement === inputRef.current) {
+        return
+      }
+
       // スペースキーの処理
       if (e.code === 'Space') {
-        // ゲーム中で英語の単語にスペースが含まれている場合は、スペース入力を許可
-        if (gameState.gameStatus === 'playing' && 
-            gameState.selectedLanguage === 'en' && 
-            gameState.currentWord.includes(' ')) {
-          // スペース入力を許可（preventDefaultしない）
-          return
-        }
-        
-        // その他の場合はスクロールを防ぐ
+        // スクロールを防ぐ
         e.preventDefault()
 
         if (gameState.gameStatus === 'categorySelection') {
@@ -927,14 +950,14 @@ export default function TypingGame() {
                     : 'bg-yellow-500 hover:bg-yellow-600 text-white'
                 }`}
               >
-                🏆 ランキング
+                🏆 {gameState.selectedLanguage === 'jp' ? 'ランキング' : 'Ranking'}
               </button>
             </div>
             
             {/* 中央のタイトル */}
             <div className="order-1 sm:order-2">
               <h1 className="text-2xl sm:text-3xl font-bold text-white drop-shadow-lg text-center">
-                タイピングゲーム
+                {gameState.selectedLanguage === 'jp' ? 'タイピングゲーム' : 'Typing Game'}
               </h1>
             </div>
             
@@ -973,7 +996,7 @@ export default function TypingGame() {
                   onComplete={handleDamageComplete}
                 />
               </div>
-              <div className="text-lg font-semibold text-white drop-shadow-lg">プレイヤー</div>
+              <div className="text-lg font-semibold text-white drop-shadow-lg">{getLocalizedText('player', gameState.selectedLanguage)}</div>
               <div className="flex justify-center">
                 <div className="w-32 bg-gray-200 rounded-full h-4 mt-2">
                   <div
@@ -1013,7 +1036,9 @@ export default function TypingGame() {
                   skippable={effectState.explosionSkippable}
                 />
               </div>
-              <div className="text-lg font-semibold text-white drop-shadow-lg">{ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA].name}</div>
+              <div className="text-lg font-semibold text-white drop-shadow-lg">
+                {ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA].name[gameState.selectedLanguage]}
+              </div>
               <div className="flex justify-center">
                 <div
                   className="bg-gray-200 rounded-full h-4 mt-2 transition-all duration-300"
@@ -1045,23 +1070,40 @@ export default function TypingGame() {
           <div className="max-w-xl mx-auto flex-1 flex flex-col justify-center">
             {gameState.gameStatus === 'categorySelection' && (
               <div className="text-center">
-                <div className="mb-6">
-                  <h2 className="text-2xl font-bold text-white drop-shadow-lg mb-2">
-                    🎯 カテゴリーを選択してください
-                  </h2>
-                  <p className="text-white drop-shadow-lg">
-                    カテゴリーを選ぶと自動的にゲームが開始されます！
-                  </p>
+                {/* 言語選択 */}
+                <div className="mb-8">
+                  <div className="flex items-center justify-center space-x-4 mb-4">
+                    <div className="flex bg-white/20 rounded-lg p-1">
+                      <button
+                        onClick={() => setGameState(prev => ({ ...prev, selectedLanguage: 'jp' }))}
+                        className={`px-4 py-2 rounded-md transition-colors ${
+                          gameState.selectedLanguage === 'jp'
+                            ? 'bg-blue-500 text-white'
+                            : 'text-white hover:text-gray-200'
+                        }`}
+                      >
+                        🇯🇵 日本語
+                      </button>
+                      <button
+                        onClick={() => setGameState(prev => ({ ...prev, selectedLanguage: 'en' }))}
+                        className={`px-4 py-2 rounded-md transition-colors ${
+                          gameState.selectedLanguage === 'en'
+                            ? 'bg-blue-500 text-white'
+                            : 'text-white hover:text-gray-200'
+                        }`}
+                      >
+                        🇺🇸 English
+                      </button>
+                    </div>
+                  </div>
                 </div>
+
                 <button
                   onClick={() => setShowCategorySelection(true)}
                   className="font-bold py-4 px-8 rounded-lg text-xl bg-purple-500 hover:bg-purple-600 text-white transition-colors"
                 >
-                  🎯 カテゴリーを選ぶ
+                  🎯 {gameState.selectedLanguage === 'jp' ? 'ゲーム開始' : 'Start Game'}
                 </button>
-                <div className="mt-4 text-sm text-white drop-shadow-lg">
-                  💡 食べ物、乗り物、駅名から選択できます
-                </div>
               </div>
             )}
 
@@ -1137,7 +1179,9 @@ export default function TypingGame() {
                 </div>
                 <div className="mb-3 flex justify-center space-x-3">
                   <div>
-                    <span className="text-xs text-white drop-shadow-lg">完了: </span>
+                    <span className="text-xs text-white drop-shadow-lg">
+                      {getLocalizedText('completed', gameState.selectedLanguage)}: 
+                    </span>
                     <span className="text-base font-bold text-white drop-shadow-lg">{gameState.wordsCompleted}</span>
                   </div>
                   <div>
@@ -1188,7 +1232,7 @@ export default function TypingGame() {
                     ? 'border-gray-300 bg-gray-100 cursor-not-allowed'
                     : 'border-gray-300 focus:border-blue-500'
                     }`}
-                  placeholder="ここにタイピング..."
+                  placeholder={getLocalizedText('placeholder', gameState.selectedLanguage)}
                   autoFocus
                 />
                 <div className="mt-2 text-xs text-white drop-shadow-lg space-y-1">
@@ -1209,16 +1253,26 @@ export default function TypingGame() {
                     <div className="flex justify-center space-x-4 mb-4">
                       {/* 倒した敵の情報 */}
                       <div className="bg-gray-100 rounded-lg p-3 flex-1 max-w-xs">
-                        <h4 className="text-sm font-semibold mb-2">倒した敵</h4>
+                        <h4 className="text-sm font-semibold mb-2">
+                          {getLocalizedText('defeatedEnemy', gameState.selectedLanguage)}
+                        </h4>
                         <div className="flex items-center justify-center mb-2">
                           <div className="w-12 h-12 bg-red-300 rounded-full flex items-center justify-center mr-2 opacity-50">
                             <span className="text-xl">{ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA].defeatedIcon}</span>
                           </div>
                           <div className="text-left text-xs">
-                            <div className="font-semibold">{ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA].name}</div>
-                            <div className="text-gray-600">HP: 0/{ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA].maxHP} (撃破)</div>
-                            <div className="text-blue-600">単語: {gameState.wordsCompleted}</div>
-                            <div className="text-green-600">スコア: {(gameState.score || 0).toLocaleString()}</div>
+                            <div className="font-semibold">
+                              {ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA].name[gameState.selectedLanguage]}
+                            </div>
+                            <div className="text-gray-600">
+                              {getLocalizedText('hp', gameState.selectedLanguage)}: 0/{ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA].maxHP} ({getLocalizedText('defeated', gameState.selectedLanguage)})
+                            </div>
+                            <div className="text-blue-600">
+                              {getLocalizedText('words', gameState.selectedLanguage)}: {gameState.wordsCompleted}
+                            </div>
+                            <div className="text-green-600">
+                              {getLocalizedText('score', gameState.selectedLanguage)}: {(gameState.score || 0).toLocaleString()}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -1226,23 +1280,35 @@ export default function TypingGame() {
                       {/* 次の敵の予告 */}
                       {gameState.round < 5 ? (
                         <div className="bg-blue-50 rounded-lg p-3 flex-1 max-w-xs">
-                          <h4 className="text-sm font-semibold mb-2">次の敵</h4>
+                          <h4 className="text-sm font-semibold mb-2">
+                            {getLocalizedText('nextEnemy', gameState.selectedLanguage)}
+                          </h4>
                           <div className="flex items-center justify-center mb-2">
                             <div className="w-12 h-12 bg-purple-200 rounded-full flex items-center justify-center mr-2 animate-pulse">
                               <span className="text-xl">❓</span>
                             </div>
                             <div className="text-left text-xs">
-                              <div className="font-semibold">{ENEMY_DATA[(gameState.round + 1) as keyof typeof ENEMY_DATA].name}</div>
-                              <div className="text-gray-600">HP: {ENEMY_DATA[(gameState.round + 1) as keyof typeof ENEMY_DATA].maxHP}/{ENEMY_DATA[(gameState.round + 1) as keyof typeof ENEMY_DATA].maxHP}</div>
-                              <div className="text-red-600">時間: {ENEMY_DATA[(gameState.round + 1) as keyof typeof ENEMY_DATA].timeLimit}秒</div>
+                              <div className="font-semibold">
+                                {ENEMY_DATA[(gameState.round + 1) as keyof typeof ENEMY_DATA].name[gameState.selectedLanguage]}
+                              </div>
+                              <div className="text-gray-600">
+                                {getLocalizedText('hp', gameState.selectedLanguage)}: {ENEMY_DATA[(gameState.round + 1) as keyof typeof ENEMY_DATA].maxHP}/{ENEMY_DATA[(gameState.round + 1) as keyof typeof ENEMY_DATA].maxHP}
+                              </div>
+                              <div className="text-red-600">
+                                {getLocalizedText('timeLimit', gameState.selectedLanguage)}: {ENEMY_DATA[(gameState.round + 1) as keyof typeof ENEMY_DATA].timeLimit}{getLocalizedText('seconds', gameState.selectedLanguage)}
+                              </div>
                             </div>
                           </div>
                         </div>
                       ) : (
                         <div className="bg-gradient-to-r from-yellow-100 to-yellow-200 rounded-lg p-3 flex-1 max-w-xs">
-                          <h4 className="text-sm font-bold mb-2 text-yellow-800">🏆 全敵撃破！</h4>
+                          <h4 className="text-sm font-bold mb-2 text-yellow-800">
+                            🏆 {getLocalizedText('allEnemiesDefeated', gameState.selectedLanguage)}
+                          </h4>
                           <div className="text-3xl mb-2">🎊</div>
-                          <p className="text-xs text-yellow-700">全ラウンド<br />クリア！</p>
+                          <p className="text-xs text-yellow-700">
+                            {getLocalizedText('gameComplete', gameState.selectedLanguage)}
+                          </p>
                         </div>
                       )}
                     </div>
@@ -1258,10 +1324,10 @@ export default function TypingGame() {
                           : 'bg-green-500 hover:bg-green-700 text-white'
                         }`}
                     >
-                      {gameState.round >= 5 ? '🏆 ゲーム完了' : '⚔️ 次のラウンドへ'}
+                      {gameState.round >= 5 ? getLocalizedText('gameCompleteButton', gameState.selectedLanguage) : getLocalizedText('nextRoundButton', gameState.selectedLanguage)}
                     </button>
                     <div className="mt-2 text-xs text-white drop-shadow-lg">
-                      💡 スペースキーでも進めます
+                      {getLocalizedText('spaceKeyTip', gameState.selectedLanguage)}
                     </div>
                   </div>
                 ) : (
@@ -1355,7 +1421,7 @@ export default function TypingGame() {
                         : 'bg-yellow-500 hover:bg-yellow-600 text-white'
                     }`}
                   >
-                    🏆 ランキング
+                    🏆 {gameState.selectedLanguage === 'jp' ? 'ランキング' : 'Ranking'}
                   </button>
                   <button
                     onClick={() => {
@@ -1427,6 +1493,7 @@ export default function TypingGame() {
       {/* リーダーボード */}
       <Leaderboard
         isVisible={showLeaderboard}
+        language={gameState.selectedLanguage}
         onClose={() => {
           setShowLeaderboard(false)
           resetGameDirectly()
@@ -1438,9 +1505,6 @@ export default function TypingGame() {
       <CategorySelection
         isVisible={showCategorySelection}
         selectedLanguage={gameState.selectedLanguage}
-        onLanguageChange={(language) => {
-          setGameState(prev => ({ ...prev, selectedLanguage: language }))
-        }}
         onCategorySelect={(categoryId) => {
           console.log(`Category selected: ${categoryId}`)
           setGameState(prev => ({ 

@@ -111,8 +111,8 @@ class ApiClient {
     return this.request(url);
   }
 
-  async getCategories(): Promise<ApiResponse<Category[]>> {
-    return this.request('/api/game/categories');
+  async getCategories(language: 'jp' | 'en' = 'jp'): Promise<ApiResponse<Category[]>> {
+    return this.request(`/api/game/categories?language=${language}`);
   }
 }
 

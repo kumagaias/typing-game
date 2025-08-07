@@ -15,10 +15,9 @@ interface CategorySelectionProps {
   onCategorySelect: (categoryId: string) => void
   onClose: () => void
   selectedLanguage: 'jp' | 'en'
-  onLanguageChange: (language: 'jp' | 'en') => void
 }
 
-export default function CategorySelection({ isVisible, onCategorySelect, onClose, selectedLanguage, onLanguageChange }: CategorySelectionProps) {
+export default function CategorySelection({ isVisible, onCategorySelect, onClose, selectedLanguage }: CategorySelectionProps) {
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -27,13 +26,13 @@ export default function CategorySelection({ isVisible, onCategorySelect, onClose
     if (isVisible) {
       fetchCategories()
     }
-  }, [isVisible])
+  }, [isVisible, selectedLanguage])
 
   const fetchCategories = async () => {
     setLoading(true)
     setError(null)
     try {
-      const response = await apiClient.getCategories()
+      const response = await apiClient.getCategories(selectedLanguage)
       setCategories(response.categories || [])
     } catch (err) {
       setError(selectedLanguage === 'jp' ? 'カテゴリーの取得に失敗しました' : 'Failed to fetch categories')
@@ -76,36 +75,7 @@ export default function CategorySelection({ isVisible, onCategorySelect, onClose
           </button>
         </div>
 
-        {/* 言語切り替え */}
-        <div className="mb-6">
-          <div className="flex items-center justify-center space-x-4">
-            <span className="text-gray-700 font-medium">
-              {selectedLanguage === 'jp' ? '言語:' : 'Language:'}
-            </span>
-            <div className="flex bg-gray-100 rounded-lg p-1">
-              <button
-                onClick={() => onLanguageChange('jp')}
-                className={`px-4 py-2 rounded-md transition-colors ${
-                  selectedLanguage === 'jp'
-                    ? 'bg-blue-500 text-white'
-                    : 'text-gray-600 hover:text-gray-800'
-                }`}
-              >
-                🇯🇵 日本語
-              </button>
-              <button
-                onClick={() => onLanguageChange('en')}
-                className={`px-4 py-2 rounded-md transition-colors ${
-                  selectedLanguage === 'en'
-                    ? 'bg-blue-500 text-white'
-                    : 'text-gray-600 hover:text-gray-800'
-                }`}
-              >
-                🇺🇸 English
-              </button>
-            </div>
-          </div>
-        </div>
+
 
         {loading && (
           <div className="text-center py-8">
