@@ -47,6 +47,16 @@ type WordItem struct {
 	Word     string `dynamodbav:"word" json:"word"`
 	Round    int    `dynamodbav:"round" json:"round"`
 	Type     string `dynamodbav:"type" json:"type"` // "normal", "bonus", "debuff"
+	Language string `dynamodbav:"language" json:"language"`
+}
+
+type TranslationItem struct {
+	WordID      string `dynamodbav:"word_id" json:"word_id"`
+	Language    string `dynamodbav:"language" json:"language"`
+	Translation string `dynamodbav:"translation" json:"translation"`
+	Category    string `dynamodbav:"category" json:"category"`
+	CreatedAt   string `dynamodbav:"created_at" json:"created_at"`
+	UpdatedAt   string `dynamodbav:"updated_at" json:"updated_at"`
 }
 
 func init() {
@@ -94,6 +104,7 @@ func setupRoutes(r *gin.Engine) {
 			game.GET("/leaderboard", getLeaderboard)
 			game.GET("/words/:category/:round", getWords)
 			game.GET("/categories", getCategories)
+			game.GET("/translation/:word_id", getTranslation)
 		}
 	}
 	
@@ -110,6 +121,7 @@ func setupRoutes(r *gin.Engine) {
 			stageGame.GET("/leaderboard", getLeaderboard)
 			stageGame.GET("/words/:category/:round", getWords)
 			stageGame.GET("/categories", getCategories)
+			stageGame.GET("/translation/:word_id", getTranslation)
 		}
 	}
 }
@@ -235,25 +247,65 @@ func getWords(c *gin.Context) {
 }
 
 func getCategories(c *gin.Context) {
-	categories := []map[string]interface{}{
-		{
-			"id":          "food",
-			"name":        "食べ物",
-			"description": "美味しい食べ物や飲み物の単語",
-			"icon":        "🍜",
-		},
-		{
-			"id":          "vehicle",
-			"name":        "乗り物",
-			"description": "車や電車、飛行機などの乗り物",
-			"icon":        "🚗",
-		},
-		{
-			"id":          "station",
-			"name":        "駅名",
-			"description": "日本全国の駅名",
-			"icon":        "🚉",
-		},
+	// 言語パラメータを取得（デフォルトは日本語）
+	language := c.DefaultQuery("language", "jp")
+	
+	var categories []map[string]interface{}
+	
+	if language == "en" {
+		categories = []map[string]interface{}{
+			{
+				"id":          "beginner_words",
+				"name":        "Beginner Words",
+				"description": "Basic words used in daily life",
+				"icon":        "📚",
+			},
+			{
+				"id":          "intermediate_words",
+				"name":        "Intermediate Words",
+				"description": "More complex and specialized words",
+				"icon":        "🎓",
+			},
+			{
+				"id":          "beginner_conversation",
+				"name":        "Beginner Conversation",
+				"description": "Short daily conversation expressions",
+				"icon":        "💬",
+			},
+			{
+				"id":          "intermediate_conversation",
+				"name":        "Intermediate Conversation",
+				"description": "More complex and longer conversation expressions",
+				"icon":        "🗣️",
+			},
+		}
+	} else {
+		categories = []map[string]interface{}{
+			{
+				"id":          "beginner_words",
+				"name":        "初級単語",
+				"description": "日常生活でよく使う基本的な単語",
+				"icon":        "📚",
+			},
+			{
+				"id":          "intermediate_words",
+				"name":        "中級単語",
+				"description": "より複雑で専門的な単語",
+				"icon":        "🎓",
+			},
+			{
+				"id":          "beginner_conversation",
+				"name":        "初級会話",
+				"description": "日常的な短い会話表現",
+				"icon":        "💬",
+			},
+			{
+				"id":          "intermediate_conversation",
+				"name":        "中級会話",
+				"description": "より複雑で長い会話表現",
+				"icon":        "🗣️",
+			},
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -425,6 +477,84 @@ func fetchWords(category string, round int) ([]WordItem, error) {
 
 	log.Printf("Successfully fetched %d words for category %s, round %d from DynamoDB", len(words), category, round)
 	return words, nil
+}
+
+func getTranslation(c *gin.Context) {
+	wordID := c.Param("word_id")
+	targetLanguage := c.Query("language")
+	
+	if wordID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "word_id parameter is required"})
+		return
+	}
+	
+	if targetLanguage == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "language query parameter is required"})
+		return
+	}
+	
+	// 有効な言語かチェック
+	validLanguages := []string{"jp", "en", "es", "fr", "de", "zh", "ko"}
+	isValidLanguage := false
+	for _, validLang := range validLanguages {
+		if targetLanguage == validLang {
+			isValidLanguage = true
+			break
+		}
+	}
+	if !isValidLanguage {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid language parameter"})
+		return
+	}
+	
+	translation, err := fetchTranslation(wordID, targetLanguage)
+	if err != nil {
+		log.Printf("Failed to fetch translation for word_id %s, language %s: %v", wordID, targetLanguage, err)
+		c.JSON(http.StatusNotFound, gin.H{"error": "Translation not found"})
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{
+		"translation": translation,
+		"word_id": wordID,
+		"language": targetLanguage,
+	})
+}
+
+func fetchTranslation(wordID, targetLanguage string) (string, error) {
+	translationsTable := os.Getenv("TRANSLATIONS_TABLE_NAME")
+	if translationsTable == "" {
+		translationsTable = "typing-game-translations"
+	}
+	
+	// DynamoDBから翻訳を取得
+	result, err := dynamoClient.GetItem(context.TODO(), &dynamodb.GetItemInput{
+		TableName: aws.String(translationsTable),
+		Key: map[string]types.AttributeValue{
+			"word_id": &types.AttributeValueMemberS{
+				Value: wordID,
+			},
+			"language": &types.AttributeValueMemberS{
+				Value: targetLanguage,
+			},
+		},
+	})
+	
+	if err != nil {
+		return "", fmt.Errorf("failed to get translation from DynamoDB: %w", err)
+	}
+	
+	if result.Item == nil {
+		return "", fmt.Errorf("translation not found for word_id: %s, language: %s", wordID, targetLanguage)
+	}
+	
+	var translation TranslationItem
+	err = attributevalue.UnmarshalMap(result.Item, &translation)
+	if err != nil {
+		return "", fmt.Errorf("failed to unmarshal translation: %w", err)
+	}
+	
+	return translation.Translation, nil
 }
 
 func main() {

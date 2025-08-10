@@ -114,6 +114,10 @@ class ApiClient {
   async getCategories(language: 'jp' | 'en' = 'jp'): Promise<ApiResponse<Category[]>> {
     return this.request(`/api/game/categories?language=${language}`);
   }
+
+  async getTranslation(wordId: string, targetLanguage: 'jp' | 'en'): Promise<ApiResponse<{translation: string}>> {
+    return this.request(`/api/game/translation/${wordId}?language=${targetLanguage}`);
+  }
 }
 
 export const apiClient = new ApiClient(API_BASE_URL);

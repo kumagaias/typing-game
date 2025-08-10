@@ -37,15 +37,17 @@ export default function CategorySelection({ isVisible, onCategorySelect, onClose
     } catch (err) {
       setError(selectedLanguage === 'jp' ? 'カテゴリーの取得に失敗しました' : 'Failed to fetch categories')
       console.error('Failed to fetch categories:', err)
-      // フォールバック: デフォルトカテゴリーを使用
+      // フォールバック: 新しいカテゴリーを使用
       const defaultCategories = selectedLanguage === 'jp' ? [
-        { id: 'food', name: '食べ物', description: '美味しい食べ物や飲み物の単語', icon: '🍜' },
-        { id: 'vehicle', name: '乗り物', description: '車や電車、飛行機などの乗り物', icon: '🚗' },
-        { id: 'station', name: '駅名', description: '日本全国の駅名', icon: '🚉' },
+        { id: 'beginner_words', name: '初級単語', description: '日常生活でよく使う基本的な単語', icon: '📚' },
+        { id: 'intermediate_words', name: '中級単語', description: 'より複雑で専門的な単語', icon: '🎓' },
+        { id: 'beginner_conversation', name: '初級会話', description: '日常的な短い会話表現', icon: '💬' },
+        { id: 'intermediate_conversation', name: '中級会話', description: 'より複雑で長い会話表現', icon: '🗣️' },
       ] : [
-        { id: 'food', name: 'Food', description: 'Delicious foods and drinks', icon: '🍜' },
-        { id: 'vehicle', name: 'Vehicle', description: 'Cars, trains, planes and more', icon: '🚗' },
-        { id: 'station', name: 'Station', description: 'Train stations across Japan', icon: '🚉' },
+        { id: 'beginner_words', name: 'Beginner Words', description: 'Basic words used in daily life', icon: '📚' },
+        { id: 'intermediate_words', name: 'Intermediate Words', description: 'More complex and specialized words', icon: '🎓' },
+        { id: 'beginner_conversation', name: 'Beginner Conversation', description: 'Short daily conversation expressions', icon: '💬' },
+        { id: 'intermediate_conversation', name: 'Intermediate Conversation', description: 'More complex and longer conversation expressions', icon: '🗣️' },
       ]
       setCategories(defaultCategories)
     } finally {
