@@ -2003,7 +2003,7 @@ export default function TypingGame() {
             currentWordTranslation: null,
             userInput: '',
             timeLeft: 45,
-            gameStatus: 'waiting', // 一時的に待機状態に
+            gameStatus: 'categorySelection', // カテゴリー選択後は自動開始準備
             winner: null,
             wordsCompleted: 0,
             combo: 0,
@@ -2020,7 +2020,7 @@ export default function TypingGame() {
             displayLanguage: currentDisplayLanguage
           }))
 
-          // カテゴリー選択後、少し待ってからゲームを自動開始
+          // カテゴリー選択後、即座にゲームを自動開始
           setTimeout(async () => {
             console.log(`Auto-starting game with category: ${categoryId}, question language: ${currentQuestionLanguage}`)
 
@@ -2102,7 +2102,7 @@ export default function TypingGame() {
                 }
               }
             }, 100)
-          }, 500) // 0.5秒後に自動開始
+          }, 100) // 0.1秒後に自動開始
         }}
         onClose={() => setShowCategorySelection(false)}
       />
