@@ -238,12 +238,9 @@ const getLocalizedText = (key: TextKey, language: 'jp' | 'en'): string => {
 }
 
 export default function TypingGame() {
-  // ローカルストレージから表示言語を読み込み
+  // ローカルストレージから表示言語を読み込み（ハイドレーション対応）
   const getInitialDisplayLanguage = (): 'jp' | 'en' => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('typingGameDisplayLanguage')
-      return (saved === 'en' || saved === 'jp') ? saved : 'jp'
-    }
+    // サーバーサイドでは常に日本語を返してハイドレーションエラーを防ぐ
     return 'jp'
   }
 
@@ -291,14 +288,38 @@ export default function TypingGame() {
   const [showLeaderboard, setShowLeaderboard] = useState(false)
   const [showScoreSubmission, setShowScoreSubmission] = useState(false)
   const [showCategorySelection, setShowCategorySelection] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const [isComposing, setIsComposing] = useState(false)
 
+  // コンポーネントのマウント状態を管理
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  // クライアントサイドでローカルストレージから言語設定を読み込み
+  useEffect(() => {
+    if (isMounted && typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('typingGameDisplayLanguage')
+        if (saved === 'en' || saved === 'jp') {
+          setGameState(prev => ({ ...prev, displayLanguage: saved }))
+        }
+      } catch (error) {
+        console.warn('Failed to read display language from localStorage:', error)
+      }
+    }
+  }, [isMounted])
+
   // 表示言語の変更をローカルストレージに保存
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('typingGameDisplayLanguage', gameState.displayLanguage)
+      try {
+        localStorage.setItem('typingGameDisplayLanguage', gameState.displayLanguage)
+      } catch (error) {
+        console.warn('Failed to save display language to localStorage:', error)
+      }
     }
   }, [gameState.displayLanguage])
 
@@ -610,9 +631,14 @@ export default function TypingGame() {
   }
 
   // 単語を取得する関数
-  const fetchWordsForRound = async (category: string, round: number, language: 'jp' | 'en' = 'jp'): Promise<void> => {
+  const fetchWordsForRound = async (category: string, round: number, language: 'jp' | 'en' = 'jp', abortSignal?: AbortSignal): Promise<void> => {
     if (!category) {
       console.warn('No category selected')
+      return
+    }
+
+    // 既にキャンセルされている場合は処理を中断
+    if (abortSignal?.aborted) {
       return
     }
 
@@ -620,6 +646,12 @@ export default function TypingGame() {
     try {
       // 言語パラメータ付きでAPIを呼び出し
       console.log(`Fetching words for ${category}, round ${round}, language ${language}`)
+      
+      // キャンセルチェック
+      if (abortSignal?.aborted) {
+        return
+      }
+      
       const response = await apiClient.getWords(category, round, language)
       const allWords = response.words || []
 
@@ -682,6 +714,12 @@ export default function TypingGame() {
       }
 
       return new Promise((resolve) => {
+        // キャンセルチェック
+        if (abortSignal?.aborted) {
+          resolve()
+          return
+        }
+        
         setGameState(prev => ({
           ...prev,
           availableWords: filteredWords,
@@ -693,29 +731,51 @@ export default function TypingGame() {
       })
     } catch (error) {
       console.error(`Failed to fetch words for category ${category}, round ${round}:`, error)
-      // フォールバック: カテゴリーと言語に応じたハードコードされた単語を使用
+      // フォールバック: 新しいカテゴリーと言語に応じたハードコードされた単語を使用
       let fallbackWords: string[] = []
 
       if (language === 'jp') {
-        if (category === 'food') {
-          fallbackWords = FOOD_WORDS[round as keyof typeof FOOD_WORDS] || []
-        } else if (category === 'vehicle') {
-          fallbackWords = ['くるま', 'でんしゃ', 'ばす', 'ひこうき', 'ふね']
-        } else if (category === 'station') {
-          fallbackWords = ['とうきょう', 'しんじゅく', 'しぶや', 'いけぶくろ', 'うえの']
+        if (category === 'beginner_words') {
+          fallbackWords = ['みず', 'たべもの', 'のみもの', 'いえ', 'がっこう', 'しごと', 'ともだち', 'かぞく', 'いぬ', 'ねこ']
+        } else if (category === 'intermediate_words') {
+          fallbackWords = ['かんきょう', 'おんだんか', 'こうがい', 'りさいくる', 'しぜん', 'どうぶつ', 'しょくぶつ', 'せいたいけい', 'ちきゅう', 'うちゅう']
+        } else if (category === 'beginner_conversation') {
+          fallbackWords = ['おはよう', 'こんにちは', 'こんばんは', 'おやすみ', 'はじめまして', 'よろしく', 'ありがとう', 'すみません', 'ごめんなさい', 'いいえ']
+        } else if (category === 'intermediate_conversation') {
+          fallbackWords = ['おひさしぶりです', 'げんきでしたか', 'おかげさまで', 'いかがですか', 'どうされましたか', 'なにかありましたか', 'しんぱいしています', 'だいじょうぶでしょうか', 'てつだいましょうか', 'なにかできることは']
         } else {
-          fallbackWords = FOOD_WORDS[round as keyof typeof FOOD_WORDS] || []
+          // 古いカテゴリーの場合
+          if (category === 'food') {
+            fallbackWords = FOOD_WORDS[round as keyof typeof FOOD_WORDS] || []
+          } else if (category === 'vehicle') {
+            fallbackWords = ['くるま', 'でんしゃ', 'ばす', 'ひこうき', 'ふね']
+          } else if (category === 'station') {
+            fallbackWords = ['とうきょう', 'しんじゅく', 'しぶや', 'いけぶくろ', 'うえの']
+          } else {
+            fallbackWords = ['みず', 'たべもの', 'のみもの', 'いえ', 'がっこう']
+          }
         }
       } else {
         // 英語のフォールバック単語
-        if (category === 'food') {
-          fallbackWords = ['rice', 'bread', 'meat', 'fish', 'egg', 'milk', 'water', 'tea']
-        } else if (category === 'vehicle') {
-          fallbackWords = ['car', 'train', 'bus', 'plane', 'ship']
-        } else if (category === 'station') {
-          fallbackWords = ['tokyo', 'osaka', 'kyoto', 'yokohama', 'nagoya']
+        if (category === 'beginner_words') {
+          fallbackWords = ['water', 'food', 'drink', 'house', 'school', 'work', 'friend', 'family', 'dog', 'cat']
+        } else if (category === 'intermediate_words') {
+          fallbackWords = ['environment', 'global warming', 'pollution', 'recycle', 'nature', 'animal', 'plant', 'ecosystem', 'earth', 'space']
+        } else if (category === 'beginner_conversation') {
+          fallbackWords = ['good morning', 'hello', 'good evening', 'good night', 'nice to meet you', 'please treat me well', 'thank you', 'excuse me', 'sorry', 'no']
+        } else if (category === 'intermediate_conversation') {
+          fallbackWords = ['long time no see', 'how have you been', 'thanks to you', 'how are things', 'what happened', 'did something happen', 'i am worried', 'will it be okay', 'shall i help', 'is there anything i can do']
         } else {
-          fallbackWords = ['rice', 'bread', 'meat', 'fish', 'egg']
+          // 古いカテゴリーの場合
+          if (category === 'food') {
+            fallbackWords = ['rice', 'bread', 'meat', 'fish', 'egg', 'milk', 'water', 'tea']
+          } else if (category === 'vehicle') {
+            fallbackWords = ['car', 'train', 'bus', 'plane', 'ship']
+          } else if (category === 'station') {
+            fallbackWords = ['tokyo', 'osaka', 'kyoto', 'yokohama', 'nagoya']
+          } else {
+            fallbackWords = ['water', 'food', 'drink', 'house', 'school']
+          }
         }
       }
 
@@ -729,6 +789,12 @@ export default function TypingGame() {
       }))
 
       return new Promise((resolve) => {
+        // キャンセルチェック
+        if (abortSignal?.aborted) {
+          resolve()
+          return
+        }
+        
         setGameState(prev => ({
           ...prev,
           availableWords: wordItems,
@@ -802,8 +868,13 @@ export default function TypingGame() {
   // ゲーム開始
   const startRound = useCallback(async () => {
     console.log(`Starting round ${gameState.round} with category: ${gameState.selectedCategory}`)
-    // まず単語を取得してからゲームを開始
-    await fetchWordsForRound(gameState.selectedCategory, gameState.round, gameState.questionLanguage)
+    
+    // AbortControllerを作成
+    const abortController = new AbortController()
+    
+    try {
+      // まず単語を取得してからゲームを開始
+      await fetchWordsForRound(gameState.selectedCategory, gameState.round, gameState.questionLanguage, abortController.signal)
 
     const timeLimit = ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA].timeLimit
     let wordData = generateRandomWord(gameState.lastWord)
@@ -824,10 +895,20 @@ export default function TypingGame() {
     console.log(`Answer language: ${gameState.answerLanguage}`)
     console.log(`=== End Selected Word Debug ===`)
 
-    // 翻訳を取得
-    const wordWithTranslation = await setWordWithTranslation(newWord, newWordItem, gameState.questionLanguage, gameState.answerLanguage)
+      // キャンセルチェック
+      if (abortController.signal.aborted) {
+        return
+      }
 
-    setGameState(prev => {
+      // 翻訳を取得
+      const wordWithTranslation = await setWordWithTranslation(newWord, newWordItem, gameState.questionLanguage, gameState.answerLanguage)
+
+      // 再度キャンセルチェック
+      if (abortController.signal.aborted) {
+        return
+      }
+
+      setGameState(prev => {
       // 使用済み単語に追加
       const newUsedWords = new Set(prev.usedWords)
       newUsedWords.add(newWord)
@@ -861,6 +942,15 @@ export default function TypingGame() {
         }
       }
     }, 100)
+    } catch (error) {
+      console.error('Error in startRound:', error)
+      // エラー時は安全にゲーム状態をリセット
+      setGameState(prev => ({
+        ...prev,
+        gameStatus: 'categorySelection',
+        wordsLoading: false
+      }))
+    }
   }, [generateRandomWord])
 
   // タイマー処理
@@ -1360,6 +1450,15 @@ export default function TypingGame() {
   const currentEnemyData = ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA]
   const theme = currentEnemyData.theme
 
+  // ハイドレーション完了まで何も表示しない
+  if (!isMounted) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-600/40 via-indigo-600/30 to-black/50 flex items-center justify-center">
+        <div className="text-white text-xl">Loading...</div>
+      </div>
+    )
+  }
+
   return (
     <div
       className="min-h-screen transition-all duration-1000 bg-cover bg-center bg-no-repeat relative"
@@ -1398,7 +1497,49 @@ export default function TypingGame() {
             <div className="flex justify-end w-full sm:w-1/3 order-3 sm:order-3">
               <div className="flex bg-white/20 rounded-lg p-1">
                 <button
-                  onClick={() => setGameState(prev => ({ ...prev, displayLanguage: 'jp' }))}
+                  onClick={() => {
+                    // 言語切り替え時にゲームをリセットして安全に切り替える
+                    const currentDisplayLanguage = 'jp'
+                    setGameState({
+                      round: 1,
+                      playerHP: 100,
+                      enemyHP: ENEMY_DATA[1].maxHP,
+                      currentWord: '',
+                      currentWordItem: null,
+                      currentWordTranslation: null,
+                      userInput: '',
+                      timeLeft: 45,
+                      gameStatus: 'categorySelection',
+                      winner: null,
+                      wordsCompleted: 0,
+                      combo: 0,
+                      isSpecialWord: false,
+                      specialType: 'normal',
+                      lastWord: '',
+                      score: 0,
+                      maxCombo: 0,
+                      roundStartTime: 0,
+                      totalTime: 1,
+                      roundStartScore: 0,
+                      availableWords: [],
+                      wordsLoading: false,
+                      selectedCategory: '',
+                      usedWords: new Set<string>(),
+                      questionLanguage: 'jp',
+                      answerLanguage: 'jp',
+                      displayLanguage: currentDisplayLanguage
+                    })
+                    setEffectState({
+                      showExplosion: false,
+                      explosionSkippable: false,
+                      showDamage: false,
+                      showEnemyDamage: false,
+                      lastDamage: 0,
+                      showScoreEffect: false,
+                      lastScoreGain: 0,
+                      scoreEffectKey: 0
+                    })
+                  }}
                   className={`px-2 py-1 rounded-md transition-colors text-xs ${gameState.displayLanguage === 'jp'
                     ? 'bg-purple-500 text-white'
                     : 'text-white hover:text-gray-200'
@@ -1408,7 +1549,49 @@ export default function TypingGame() {
                   🇯🇵
                 </button>
                 <button
-                  onClick={() => setGameState(prev => ({ ...prev, displayLanguage: 'en' }))}
+                  onClick={() => {
+                    // 言語切り替え時にゲームをリセットして安全に切り替える
+                    const currentDisplayLanguage = 'en'
+                    setGameState({
+                      round: 1,
+                      playerHP: 100,
+                      enemyHP: ENEMY_DATA[1].maxHP,
+                      currentWord: '',
+                      currentWordItem: null,
+                      currentWordTranslation: null,
+                      userInput: '',
+                      timeLeft: 45,
+                      gameStatus: 'categorySelection',
+                      winner: null,
+                      wordsCompleted: 0,
+                      combo: 0,
+                      isSpecialWord: false,
+                      specialType: 'normal',
+                      lastWord: '',
+                      score: 0,
+                      maxCombo: 0,
+                      roundStartTime: 0,
+                      totalTime: 1,
+                      roundStartScore: 0,
+                      availableWords: [],
+                      wordsLoading: false,
+                      selectedCategory: '',
+                      usedWords: new Set<string>(),
+                      questionLanguage: 'jp',
+                      answerLanguage: 'jp',
+                      displayLanguage: currentDisplayLanguage
+                    })
+                    setEffectState({
+                      showExplosion: false,
+                      explosionSkippable: false,
+                      showDamage: false,
+                      showEnemyDamage: false,
+                      lastDamage: 0,
+                      showScoreEffect: false,
+                      lastScoreGain: 0,
+                      scoreEffectKey: 0
+                    })
+                  }}
                   className={`px-2 py-1 rounded-md transition-colors text-xs ${gameState.displayLanguage === 'en'
                     ? 'bg-purple-500 text-white'
                     : 'text-white hover:text-gray-200'
