@@ -16,11 +16,8 @@ export default function GameUI() {
   try {
     const gameLogicResult = useGameLogic()
     
-    console.log('GameUI render - gameLogicResult:', gameLogicResult)
-    
     // useGameLogicの戻り値が正しく取得できているかチェック
     if (!gameLogicResult || !gameLogicResult.gameState) {
-      console.error('useGameLogic returned invalid result:', gameLogicResult)
       return (
         <div className="min-h-screen bg-gradient-to-br from-purple-600/40 via-indigo-600/30 to-black/50 flex items-center justify-center">
           <div className="text-white text-xl">Error: Game logic not initialized</div>
@@ -48,17 +45,13 @@ export default function GameUI() {
     generateRandomWordFromList
   } = gameLogicResult
 
-  console.log('GameUI render - showLeaderboard:', showLeaderboard)
-  console.log('GameUI render - showCategorySelection:', showCategorySelection)
-  console.log('GameUI render - isMounted:', isMounted)
+
 
   const inputRef = useRef<HTMLInputElement>(null)
   const [isComposing, setIsComposing] = useState(false)
 
   // ゲーム開始
   const startRound = useCallback(async () => {
-    console.log(`Starting round ${gameState.round} with category: ${gameState.selectedCategory}`)
-    
     // AbortControllerを作成
     const abortController = new AbortController()
     
@@ -69,8 +62,7 @@ export default function GameUI() {
       const timeLimit = ENEMY_DATA[gameState.round as keyof typeof ENEMY_DATA].timeLimit
       let wordData = generateRandomWordFromList(availableWords, gameState.usedWords, gameState.lastWord)
       
-      console.log(`Available words count: ${availableWords.length}`)
-      console.log(`Generated word data:`, wordData)
+
       
       // 使用済み単語のリセットが必要な場合
       if (wordData.word === 'RESET_USED_WORDS') {
@@ -81,12 +73,7 @@ export default function GameUI() {
       const newWord = typeof wordData === 'string' ? wordData : wordData.word
       const newWordItem = typeof wordData !== 'string' ? wordData.wordItem : null
 
-      console.log(`=== Selected Word Debug ===`)
-      console.log(`Selected word: "${newWord}"`)
-      console.log(`Word item:`, newWordItem)
-      console.log(`Question language: ${gameState.questionLanguage}`)
-      console.log(`Answer language: ${gameState.answerLanguage}`)
-      console.log(`=== End Selected Word Debug ===`)
+
 
       // キャンセルチェック
       if (abortController.signal.aborted) {
@@ -94,9 +81,7 @@ export default function GameUI() {
       }
 
       // 翻訳を取得
-      console.log(`Getting translation for first word: ${newWord}`)
       const wordWithTranslation = await setWordWithTranslation(newWord, newWordItem, gameState.questionLanguage, gameState.answerLanguage)
-      console.log(`First word translation result:`, wordWithTranslation)
 
       // 再度キャンセルチェック
       if (abortController.signal.aborted) {
@@ -125,7 +110,7 @@ export default function GameUI() {
         usedWords: newUsedWords
       }))
 
-      console.log(`Game state updated with translation: ${wordWithTranslation.translation}`)
+
 
       // 入力フィールドにフォーカス
       setTimeout(() => {
@@ -133,7 +118,7 @@ export default function GameUI() {
           try {
             inputRef.current.focus()
           } catch (error) {
-            console.log('Focus error:', error)
+            // Focus error handling
           }
         }
       }, 100)
@@ -180,7 +165,6 @@ export default function GameUI() {
   const checkInput = async () => {
     // ゲーム中でない場合は処理をスキップ
     if (gameState.gameStatus !== 'playing') {
-      console.log('Game not in playing state, ignoring input')
       return
     }
 
@@ -188,20 +172,13 @@ export default function GameUI() {
     
     // 空の入力は無視
     if (input === '') {
-      console.log('Empty input, ignoring...')
       return
     }
     
     const currentWord = gameState.currentWord
     const currentWordItem = gameState.currentWordItem
 
-    console.log(`=== Input Check Debug ===`)
-    console.log(`Input: "${input}"`)
-    console.log(`Current word: "${currentWord}"`)
-    console.log(`Question language: ${gameState.questionLanguage}`)
-    console.log(`Answer language: ${gameState.answerLanguage}`)
-    console.log(`Current word translation: ${gameState.currentWordTranslation}`)
-    console.log(`Current word item:`, currentWordItem)
+
 
     let isCorrect = false
 
