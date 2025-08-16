@@ -1,0 +1,521 @@
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import { apiClient, WordItem } from '../lib/api'
+import { GameState, EffectState, ENEMY_DATA, FOOD_WORDS } from './GameData'
+
+export const useGameLogic = () => {
+  // ローカルストレージから表示言語を読み込み（ハイドレーション対応）
+  const getInitialDisplayLanguage = (): 'jp' | 'en' => {
+    // サーバーサイドでは常に日本語を返してハイドレーションエラーを防ぐ
+    return 'jp'
+  }
+
+  const [gameState, setGameState] = useState<GameState>({
+    round: 1,
+    playerHP: 100,
+    enemyHP: ENEMY_DATA[1].maxHP,
+    currentWord: '',
+    currentWordItem: null,
+    currentWordTranslation: null,
+    userInput: '',
+    timeLeft: 45,
+    gameStatus: 'categorySelection',
+    winner: null,
+    wordsCompleted: 0,
+    combo: 0,
+    isSpecialWord: false,
+    specialType: 'normal',
+    lastWord: '',
+    score: 0,
+    maxCombo: 0,
+    roundStartTime: 0,
+    totalTime: 1, // 最小1秒
+    roundStartScore: 0,
+    availableWords: [],
+    wordsLoading: false,
+    selectedCategory: '',
+    usedWords: new Set<string>(),
+    questionLanguage: 'jp',  // お題の言語
+    answerLanguage: 'jp',    // 回答の言語
+    displayLanguage: getInitialDisplayLanguage()    // UI表示言語
+  })
+
+  const [effectState, setEffectState] = useState<EffectState>({
+    showExplosion: false,
+    explosionSkippable: false,
+    showDamage: false,
+    showEnemyDamage: false,
+    lastDamage: 0,
+    showScoreEffect: false,
+    lastScoreGain: 0,
+    scoreEffectKey: 0
+  })
+
+  const [showLeaderboard, setShowLeaderboard] = useState(false)
+  const [showScoreSubmission, setShowScoreSubmission] = useState(false)
+  const [showCategorySelection, setShowCategorySelection] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
+
+  // デバッグ用のログ
+  useEffect(() => {
+    console.log('GameLogic - showLeaderboard changed:', showLeaderboard)
+  }, [showLeaderboard])
+
+  useEffect(() => {
+    console.log('GameLogic - showCategorySelection changed:', showCategorySelection)
+  }, [showCategorySelection])
+
+  useEffect(() => {
+    console.log('GameLogic - isMounted changed:', isMounted)
+  }, [isMounted])
+
+  useEffect(() => {
+    console.log('GameLogic - showScoreSubmission changed:', showScoreSubmission)
+  }, [showScoreSubmission])
+
+  // コンポーネントのマウント状態を管理
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  // クライアントサイドでローカルストレージから言語設定を読み込み
+  useEffect(() => {
+    if (isMounted && typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('typingGameDisplayLanguage')
+        if (saved === 'en' || saved === 'jp') {
+          setGameState(prev => ({ ...prev, displayLanguage: saved }))
+        }
+      } catch (error) {
+        console.warn('Failed to read display language from localStorage:', error)
+      }
+    }
+  }, [isMounted])
+
+  // 表示言語の変更をローカルストレージに保存
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('typingGameDisplayLanguage', gameState.displayLanguage)
+      } catch (error) {
+        console.warn('Failed to save display language to localStorage:', error)
+      }
+    }
+  }, [gameState.displayLanguage])
+
+  // スコア計算関数
+  const calculateScore = (damage: number, combo: number, specialType: string, timeBonus: number = 0) => {
+    let baseScore = damage * 10 // 基本スコア
+
+    // コンボボーナス
+    const comboBonus = combo >= 3 ? Math.pow(combo - 2, 1.5) * 50 : 0
+
+    // 特殊単語ボーナス
+    let specialBonus = 0
+    if (specialType === 'bonus') specialBonus = 200
+    if (specialType === 'debuff') specialBonus = 100 // デバフでも少しボーナス
+
+    // 時間ボーナス
+    const timeBonusScore = timeBonus * 20
+
+    return Math.floor(baseScore + comboBonus + specialBonus + timeBonusScore)
+  }
+
+  // 簡単な翻訳辞書
+  const getSimpleTranslation = (word: string, fromLang: 'jp' | 'en', toLang: 'jp' | 'en'): string | null => {
+    console.log(`getSimpleTranslation: ${word} from ${fromLang} to ${toLang}`)
+    if (fromLang === toLang) return word
+
+    const translations: Record<string, Record<string, string>> = {
+      // 日本語 → 英語
+      'みず': { en: 'water' },
+      'たべもの': { en: 'food' },
+      'のみもの': { en: 'drink' },
+      'いえ': { en: 'house' },
+      'がっこう': { en: 'school' },
+      'しごと': { en: 'work' },
+      'ともだち': { en: 'friend' },
+      'かぞく': { en: 'family' },
+      'いぬ': { en: 'dog' },
+      'ねこ': { en: 'cat' },
+      'りんご': { en: 'apple' },
+      'みかん': { en: 'orange' },
+      'バナナ': { en: 'banana' },
+      'いちご': { en: 'strawberry' },
+      'ぶどう': { en: 'grape' },
+      'すし': { en: 'sushi' },
+      'ラーメン': { en: 'ramen' },
+      'うどん': { en: 'udon' },
+      'そば': { en: 'soba' },
+      'カレー': { en: 'curry' },
+      'おはよう': { en: 'good morning' },
+      'こんにちは': { en: 'hello' },
+      'こんばんは': { en: 'good evening' },
+      'おやすみ': { en: 'good night' },
+      'ありがとう': { en: 'thank you' },
+      'すみません': { en: 'excuse me' },
+      'ごめんなさい': { en: 'sorry' },
+      // 英語 → 日本語
+      'water': { jp: 'みず' },
+      'food': { jp: 'たべもの' },
+      'drink': { jp: 'のみもの' },
+      'house': { jp: 'いえ' },
+      'school': { jp: 'がっこう' },
+      'work': { jp: 'しごと' },
+      'friend': { jp: 'ともだち' },
+      'family': { jp: 'かぞく' },
+      'dog': { jp: 'いぬ' },
+      'cat': { jp: 'ねこ' },
+      'apple': { jp: 'りんご' },
+      'orange': { jp: 'みかん' },
+      'banana': { jp: 'バナナ' },
+      'strawberry': { jp: 'いちご' },
+      'grape': { jp: 'ぶどう' },
+      'sushi': { jp: 'すし' },
+      'ramen': { jp: 'ラーメン' },
+      'udon': { jp: 'うどん' },
+      'soba': { jp: 'そば' },
+      'curry': { jp: 'カレー' },
+      'good morning': { jp: 'おはよう' },
+      'hello': { jp: 'こんにちは' },
+      'good evening': { jp: 'こんばんは' },
+      'good night': { jp: 'おやすみ' },
+      'thank you': { jp: 'ありがとう' },
+      'excuse me': { jp: 'すみません' },
+      'sorry': { jp: 'ごめんなさい' }
+    }
+
+    return translations[word]?.[toLang] || null
+  }
+
+  // 現在の単語の翻訳を取得する関数
+  const getWordTranslation = async (currentWordItem: WordItem, targetLanguage: 'jp' | 'en'): Promise<string | null> => {
+    console.log(`=== getWordTranslation Debug ===`)
+    console.log(`Looking for translation of: "${currentWordItem.word}" (${currentWordItem.language})`)
+    console.log(`Target language: ${targetLanguage}`)
+    console.log(`Word ID: ${currentWordItem.word_id}`)
+
+    // まず簡単な翻訳辞書を試す（フォールバック用）
+    console.log(`Word item language: ${currentWordItem.language}`)
+    const simpleTranslation = getSimpleTranslation(currentWordItem.word, currentWordItem.language || 'jp', targetLanguage)
+    if (simpleTranslation) {
+      console.log(`✅ Simple translation found: ${currentWordItem.word} -> ${simpleTranslation}`)
+      return simpleTranslation
+    }
+
+    // word_idが存在する場合はDynamoDBから翻訳を取得
+    if (currentWordItem.word_id && currentWordItem.word_id !== 'undefined') {
+      try {
+        console.log(`Fetching translation from DynamoDB for word_id: ${currentWordItem.word_id}`)
+        const response = await apiClient.getTranslation(currentWordItem.word_id, targetLanguage)
+        
+        if (response.data && response.data.translation) {
+          console.log(`✅ DynamoDB translation found: ${currentWordItem.word} -> ${response.data.translation}`)
+          return response.data.translation
+        }
+      } catch (error) {
+        console.warn(`❌ DynamoDB translation not found for word_id: ${currentWordItem.word_id}`, error)
+      }
+    }
+
+    // DynamoDBで見つからない場合は従来の方法を試す
+    try {
+      // 対応する言語のword_idを生成（例: beginner_words_jp_1_043 -> beginner_words_en_1_043）
+      const currentLang = currentWordItem.language || (currentWordItem.word_id.includes('_jp_') ? 'jp' : 'en')
+      const targetLangCode = targetLanguage === 'jp' ? 'jp' : 'en'
+      const expectedWordId = currentWordItem.word_id.replace(`_${currentLang}_`, `_${targetLangCode}_`)
+      
+      console.log(`Looking for corresponding word_id: ${currentWordItem.word_id} -> ${expectedWordId}`)
+      
+      // 対応する言語の単語を取得
+      console.log(`Fetching words for category: ${currentWordItem.category}, round: ${currentWordItem.round}, language: ${targetLanguage}`)
+      const response = await apiClient.getWords(currentWordItem.category, currentWordItem.round, targetLanguage)
+      const translatedWords = response.words || []
+
+      console.log(`Found ${translatedWords.length} words in target language`)
+      console.log(`Sample translated words:`, translatedWords.slice(0, 3).map(w => `${w.word}(${w.word_id})`))
+
+      // 対応するword_idの単語を探す
+      const translatedWord = translatedWords.find(word => word.word_id === expectedWordId)
+
+      if (translatedWord) {
+        console.log(`✅ API translation found: ${currentWordItem.word} -> ${translatedWord.word}`)
+        return translatedWord.word
+      } else {
+        console.warn(`❌ No translation found for expected word_id: ${expectedWordId}`)
+        return null
+      }
+    } catch (error) {
+      console.error('Error fetching translation:', error)
+      return null
+    }
+  }
+
+  // 単語と翻訳を設定する関数
+  const setWordWithTranslation = async (word: string, wordItem: WordItem | null, questionLang: 'jp' | 'en', answerLang: 'jp' | 'en') => {
+    let translation: string | null = null
+
+    console.log(`=== setWordWithTranslation Debug ===`)
+    console.log(`Word: ${word}`)
+    console.log(`Question language: ${questionLang}`)
+    console.log(`Answer language: ${answerLang}`)
+    console.log(`Word item:`, wordItem)
+
+    // お題の言語と回答の言語が異なる場合のみ翻訳を取得
+    if (questionLang !== answerLang && wordItem) {
+      console.log(`Languages differ, getting translation...`)
+      translation = await getWordTranslation(wordItem, answerLang)
+      console.log(`Translation result: ${word} -> ${translation}`)
+    } else {
+      console.log(`Languages are same or no word item, no translation needed`)
+    }
+
+    console.log(`=== End setWordWithTranslation Debug ===`)
+
+    return {
+      word,
+      wordItem,
+      translation
+    }
+  }
+
+  // 単語を取得する関数
+  const fetchWordsForRound = async (category: string, round: number, language: 'jp' | 'en' = 'jp', abortSignal?: AbortSignal): Promise<WordItem[]> => {
+    if (!category) {
+      console.warn('No category selected')
+      return
+    }
+
+    // 既にキャンセルされている場合は処理を中断
+    if (abortSignal?.aborted) {
+      return
+    }
+
+    setGameState(prev => ({ ...prev, wordsLoading: true }))
+    try {
+      // 言語パラメータ付きでAPIを呼び出し
+      console.log(`Fetching words for ${category}, round ${round}, language ${language}`)
+      
+      // キャンセルチェック
+      if (abortSignal?.aborted) {
+        return
+      }
+      
+      const response = await apiClient.getWords(category, round, language)
+      const allWords = response.words || []
+
+      // 言語でフィルタリング（バックエンドが対応していない場合の対策）
+      console.log(`API returned ${allWords.length} words for ${category} round ${round}`)
+      console.log('Sample words:', allWords.slice(0, 3))
+
+      // 言語プロパティを持つ単語の数をチェック
+      const wordsWithLanguage = allWords.filter(word => word.language)
+      console.log(`Words with language property: ${wordsWithLanguage.length}`)
+
+      let filteredWords = allWords
+
+      // 言語プロパティを持つ単語が存在する場合のみフィルタリング
+      if (wordsWithLanguage.length > 0) {
+        filteredWords = allWords.filter(word => word.language === language)
+        console.log(`After filtering for ${language}: ${filteredWords.length} words`)
+
+        // 指定言語の単語がない場合は、言語プロパティを持つすべての単語を表示
+        if (filteredWords.length === 0) {
+          console.warn(`No words found for ${language}, showing available languages:`)
+          const languageSet = new Set(wordsWithLanguage.map(w => w.language))
+          const availableLanguages = Array.from(languageSet)
+          console.log('Available languages:', availableLanguages)
+        }
+      } else {
+        console.log('Words do not have language property, inferring language from content')
+
+        // 単語の内容から言語を推定してフィルタリング
+        filteredWords = allWords.filter(word => {
+          const isJapanese = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(word.word)
+          const isEnglish = /^[a-zA-Z\s]+$/.test(word.word)
+
+          if (language === 'jp') {
+            return isJapanese
+          } else if (language === 'en') {
+            return isEnglish
+          }
+          return false
+        })
+
+        console.log(`After language inference for ${language}: ${filteredWords.length} words`)
+        console.log('Sample filtered words:', filteredWords.slice(0, 3).map(w => w.word))
+      }
+
+      // フィルタリング後に単語がない場合はフォールバックを使用
+      if (filteredWords.length === 0) {
+        console.warn(`No words found for language ${language}, using fallback`)
+        throw new Error('No words found for selected language')
+      }
+
+      // 状態を更新
+      setGameState(prev => ({
+        ...prev,
+        availableWords: filteredWords,
+        wordsLoading: false
+      }))
+      console.log(`Loaded ${filteredWords.length} words for category ${category}, round ${round}, language ${language}`)
+      
+      // 単語リストを返す
+      return filteredWords
+    } catch (error) {
+      console.error(`Failed to fetch words for category ${category}, round ${round}:`, error)
+      // フォールバック: 新しいカテゴリーと言語に応じたハードコードされた単語を使用
+      let fallbackWords: string[] = []
+
+      if (language === 'jp') {
+        if (category === 'beginner_words') {
+          fallbackWords = ['みず', 'たべもの', 'のみもの', 'いえ', 'がっこう', 'しごと', 'ともだち', 'かぞく', 'いぬ', 'ねこ']
+        } else if (category === 'intermediate_words') {
+          fallbackWords = ['かんきょう', 'おんだんか', 'こうがい', 'りさいくる', 'しぜん', 'どうぶつ', 'しょくぶつ', 'せいたいけい', 'ちきゅう', 'うちゅう']
+        } else if (category === 'beginner_conversation') {
+          fallbackWords = ['おはよう', 'こんにちは', 'こんばんは', 'おやすみ', 'はじめまして', 'よろしく', 'ありがとう', 'すみません', 'ごめんなさい', 'いいえ']
+        } else if (category === 'intermediate_conversation') {
+          fallbackWords = ['おひさしぶりです', 'げんきでしたか', 'おかげさまで', 'いかがですか', 'どうされましたか', 'なにかありましたか', 'しんぱいしています', 'だいじょうぶでしょうか', 'てつだいましょうか', 'なにかできることは']
+        } else {
+          // 古いカテゴリーの場合
+          if (category === 'food') {
+            fallbackWords = FOOD_WORDS[round as keyof typeof FOOD_WORDS] || []
+          } else if (category === 'vehicle') {
+            fallbackWords = ['くるま', 'でんしゃ', 'ばす', 'ひこうき', 'ふね']
+          } else if (category === 'station') {
+            fallbackWords = ['とうきょう', 'しんじゅく', 'しぶや', 'いけぶくろ', 'うえの']
+          } else {
+            fallbackWords = ['みず', 'たべもの', 'のみもの', 'いえ', 'がっこう']
+          }
+        }
+      } else {
+        // 英語のフォールバック単語
+        if (category === 'beginner_words') {
+          fallbackWords = ['water', 'food', 'drink', 'house', 'school', 'work', 'friend', 'family', 'dog', 'cat']
+        } else if (category === 'intermediate_words') {
+          fallbackWords = ['environment', 'global warming', 'pollution', 'recycle', 'nature', 'animal', 'plant', 'ecosystem', 'earth', 'space']
+        } else if (category === 'beginner_conversation') {
+          fallbackWords = ['good morning', 'hello', 'good evening', 'good night', 'nice to meet you', 'please treat me well', 'thank you', 'excuse me', 'sorry', 'no']
+        } else if (category === 'intermediate_conversation') {
+          fallbackWords = ['long time no see', 'how have you been', 'thanks to you', 'how are things', 'what happened', 'did something happen', 'i am worried', 'will it be okay', 'shall i help', 'is there anything i can do']
+        } else {
+          // 古いカテゴリーの場合
+          if (category === 'food') {
+            fallbackWords = ['rice', 'bread', 'meat', 'fish', 'egg', 'milk', 'water', 'tea']
+          } else if (category === 'vehicle') {
+            fallbackWords = ['car', 'train', 'bus', 'plane', 'ship']
+          } else if (category === 'station') {
+            fallbackWords = ['tokyo', 'osaka', 'kyoto', 'yokohama', 'nagoya']
+          } else {
+            fallbackWords = ['water', 'food', 'drink', 'house', 'school']
+          }
+        }
+      }
+
+      const wordItems: WordItem[] = fallbackWords.map((word, index) => ({
+        category: category,
+        word_id: `fallback_${round}_${index}`,
+        word: word,
+        round: round,
+        type: 'normal' as const,
+        language: language
+      }))
+
+      // 状態を更新
+      setGameState(prev => ({
+        ...prev,
+        availableWords: wordItems,
+        wordsLoading: false
+      }))
+      
+      // フォールバック単語リストを返す
+      return wordItems
+    }
+  }
+
+  // 単語リストから直接単語を生成する関数
+  const generateRandomWordFromList = (availableWords: WordItem[], usedWords: Set<string>, lastWord: string = '') => {
+    console.log(`generateRandomWordFromList called, available words: ${availableWords.length}`)
+    console.log(`Sample available words:`, availableWords.slice(0, 3).map(w => w.word))
+    
+    if (availableWords.length === 0) {
+      console.warn('No words available for current round - returning error word')
+      return {
+        word: 'えらー',
+        type: 'normal' as const,
+        wordItem: null
+      }
+    }
+
+    // 未使用の単語から選択
+    let normalWords = availableWords.filter(w => w.type === 'normal' && !usedWords.has(w.word))
+    let bonusWords = availableWords.filter(w => w.type === 'bonus' && !usedWords.has(w.word))
+    let debuffWords = availableWords.filter(w => w.type === 'debuff' && !usedWords.has(w.word))
+    
+    // 全ての単語を使い切った場合はリセット
+    if (normalWords.length === 0 && bonusWords.length === 0 && debuffWords.length === 0) {
+      console.log('All words used, resetting used words set')
+      const allNormalWords = availableWords.filter(w => w.type === 'normal')
+      const allBonusWords = availableWords.filter(w => w.type === 'bonus')
+      const allDebuffWords = availableWords.filter(w => w.type === 'debuff')
+      normalWords = allNormalWords
+      bonusWords = allBonusWords
+      debuffWords = allDebuffWords
+      
+      return {
+        word: 'RESET_USED_WORDS',
+        type: 'normal' as const,
+        wordItem: null,
+        resetUsedWords: true
+      }
+    }
+
+    console.log(`Available word counts - normal: ${normalWords.length}, bonus: ${bonusWords.length}, debuff: ${debuffWords.length}`)
+
+    let selectedWord: WordItem
+    let wordType: 'normal' | 'bonus' | 'debuff' = 'normal'
+
+    // 20%の確率で特殊単語
+    if (Math.random() < 0.2 && (bonusWords.length > 0 || debuffWords.length > 0)) {
+      const isBonus = Math.random() < 0.6 // 60%でボーナス、40%でデバフ
+      const specialWords = isBonus ? bonusWords : debuffWords
+      wordType = isBonus ? 'bonus' : 'debuff'
+      selectedWord = specialWords[Math.floor(Math.random() * specialWords.length)]
+    } else {
+      selectedWord = normalWords[Math.floor(Math.random() * normalWords.length)]
+    }
+
+    return {
+      word: selectedWord.word,
+      type: wordType,
+      wordItem: selectedWord
+    }
+  }
+
+  // ランダムな単語を生成（重複回避）- 既存の関数（互換性のため残す）
+  const generateRandomWord = useCallback((lastWord: string = '') => {
+    return generateRandomWordFromList(gameState.availableWords, gameState.usedWords, lastWord)
+
+  }, [gameState.availableWords, gameState.usedWords])
+
+  return {
+    gameState,
+    setGameState,
+    effectState,
+    setEffectState,
+    showLeaderboard,
+    setShowLeaderboard,
+    showScoreSubmission,
+    setShowScoreSubmission,
+    showCategorySelection,
+    setShowCategorySelection,
+    isMounted,
+    calculateScore,
+    getWordTranslation,
+    setWordWithTranslation,
+    fetchWordsForRound,
+    generateRandomWord,
+    generateRandomWordFromList
+  }
+}
