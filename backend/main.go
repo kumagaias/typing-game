@@ -213,7 +213,7 @@ func getWords(c *gin.Context) {
 	roundStr := c.Param("round")
 	
 	// カテゴリーの検証
-	validCategories := []string{"food", "vehicle", "station"}
+	validCategories := []string{"beginner_words", "intermediate_words", "beginner_conversation", "intermediate_conversation"}
 	isValidCategory := false
 	for _, validCat := range validCategories {
 		if category == validCat {
