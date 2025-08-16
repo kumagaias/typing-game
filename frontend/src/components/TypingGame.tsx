@@ -561,7 +561,14 @@ export default function TypingGame() {
 
     // DynamoDBで見つからない場合は従来の方法を試す
     try {
-      // 同じword_idで異なる言語の単語を取得
+      // 対応する言語のword_idを生成（例: beginner_words_jp_1_043 -> beginner_words_en_1_043）
+      const currentLang = currentWordItem.language || (currentWordItem.word_id.includes('_jp_') ? 'jp' : 'en')
+      const targetLangCode = targetLanguage === 'jp' ? 'jp' : 'en'
+      const expectedWordId = currentWordItem.word_id.replace(`_${currentLang}_`, `_${targetLangCode}_`)
+      
+      console.log(`Looking for corresponding word_id: ${currentWordItem.word_id} -> ${expectedWordId}`)
+      
+      // 対応する言語の単語を取得
       console.log(`Fetching words for category: ${currentWordItem.category}, round: ${currentWordItem.round}, language: ${targetLanguage}`)
       const response = await apiClient.getWords(currentWordItem.category, currentWordItem.round, targetLanguage)
       const translatedWords = response.words || []
@@ -569,14 +576,14 @@ export default function TypingGame() {
       console.log(`Found ${translatedWords.length} words in target language`)
       console.log(`Sample translated words:`, translatedWords.slice(0, 3).map(w => `${w.word}(${w.word_id})`))
 
-      // 同じword_idの単語を探す
-      const translatedWord = translatedWords.find(word => word.word_id === currentWordItem.word_id)
+      // 対応するword_idの単語を探す
+      const translatedWord = translatedWords.find(word => word.word_id === expectedWordId)
 
       if (translatedWord) {
         console.log(`✅ API translation found: ${currentWordItem.word} -> ${translatedWord.word}`)
         return translatedWord.word
       } else {
-        console.warn(`❌ No translation found for word_id: ${currentWordItem.word_id}`)
+        console.warn(`❌ No translation found for expected word_id: ${expectedWordId}`)
         return null
       }
     } catch (error) {
