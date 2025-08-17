@@ -122,68 +122,40 @@ export const useGameLogic = () => {
     return Math.floor(baseScore + comboBonus + specialBonus + timeBonusScore)
   }
 
-  // 簡単な翻訳辞書
+  // 簡単な翻訳辞書（フォールバック用）
   const getSimpleTranslation = (word: string, fromLang: 'jp' | 'en', toLang: 'jp' | 'en'): string | null => {
     console.log(`getSimpleTranslation: ${word} from ${fromLang} to ${toLang}`)
     if (fromLang === toLang) return word
 
     const translations: Record<string, Record<string, string>> = {
-      // 日本語 → 英語
-      'みず': { en: 'water' },
-      'たべもの': { en: 'food' },
-      'のみもの': { en: 'drink' },
-      'いえ': { en: 'house' },
-      'がっこう': { en: 'school' },
-      'しごと': { en: 'work' },
-      'ともだち': { en: 'friend' },
-      'かぞく': { en: 'family' },
-      'いぬ': { en: 'dog' },
-      'ねこ': { en: 'cat' },
-      'りんご': { en: 'apple' },
-      'みかん': { en: 'orange' },
-      'バナナ': { en: 'banana' },
-      'いちご': { en: 'strawberry' },
-      'ぶどう': { en: 'grape' },
-      'すし': { en: 'sushi' },
-      'ラーメン': { en: 'ramen' },
-      'うどん': { en: 'udon' },
-      'そば': { en: 'soba' },
-      'カレー': { en: 'curry' },
-      'おはよう': { en: 'good morning' },
-      'こんにちは': { en: 'hello' },
-      'こんばんは': { en: 'good evening' },
-      'おやすみ': { en: 'good night' },
-      'ありがとう': { en: 'thank you' },
-      'すみません': { en: 'excuse me' },
-      'ごめんなさい': { en: 'sorry' },
-      // 英語 → 日本語
-      'water': { jp: 'みず' },
-      'food': { jp: 'たべもの' },
-      'drink': { jp: 'のみもの' },
-      'house': { jp: 'いえ' },
-      'school': { jp: 'がっこう' },
-      'work': { jp: 'しごと' },
-      'friend': { jp: 'ともだち' },
-      'family': { jp: 'かぞく' },
-      'dog': { jp: 'いぬ' },
-      'cat': { jp: 'ねこ' },
-      'apple': { jp: 'りんご' },
-      'orange': { jp: 'みかん' },
-      'banana': { jp: 'バナナ' },
-      'strawberry': { jp: 'いちご' },
-      'grape': { jp: 'ぶどう' },
-      'sushi': { jp: 'すし' },
-      'ramen': { jp: 'ラーメン' },
-      'udon': { jp: 'うどん' },
-      'soba': { jp: 'そば' },
-      'curry': { jp: 'カレー' },
-      'good morning': { jp: 'おはよう' },
-      'hello': { jp: 'こんにちは' },
-      'good evening': { jp: 'こんばんは' },
-      'good night': { jp: 'おやすみ' },
-      'thank you': { jp: 'ありがとう' },
-      'excuse me': { jp: 'すみません' },
-      'sorry': { jp: 'ごめんなさい' }
+      // 基本単語（ラウンド1）
+      'ねこ': { en: 'cat' }, 'cat': { jp: 'ねこ' },
+      'いぬ': { en: 'dog' }, 'dog': { jp: 'いぬ' },
+      'みず': { en: 'water' }, 'water': { jp: 'みず' },
+      'ひ': { en: 'sun' }, 'sun': { jp: 'ひ' },
+      'つき': { en: 'moon' }, 'moon': { jp: 'つき' },
+      'ほし': { en: 'star' }, 'star': { jp: 'ほし' },
+      'き': { en: 'tree' }, 'tree': { jp: 'き' },
+      'はな': { en: 'flower' }, 'flower': { jp: 'はな' },
+      'やま': { en: 'mountain' }, 'mountain': { jp: 'やま' },
+      'うみ': { en: 'sea' }, 'sea': { jp: 'うみ' },
+      'いえ': { en: 'home' }, 'home': { jp: 'いえ' },
+      
+      // 日常単語（ラウンド2）
+      'がっこう': { en: 'school' }, 'school': { jp: 'がっこう' },
+      'びょういん': { en: 'hospital' }, 'hospital': { jp: 'びょういん' },
+      'ひるごはん': { en: 'lunch' }, 'lunch': { jp: 'ひるごはん' },
+      'あさごはん': { en: 'breakfast' }, 'breakfast': { jp: 'あさごはん' },
+      'ばんごはん': { en: 'dinner' }, 'dinner': { jp: 'ばんごはん' },
+      'たんじょうび': { en: 'birthday' }, 'birthday': { jp: 'たんじょうび' },
+      'てんき': { en: 'weather' }, 'weather': { jp: 'てんき' },
+      'しごと': { en: 'work' }, 'work': { jp: 'しごと' },
+      
+      // 専門用語（ラウンド3+）
+      'ぷろぐらまー': { en: 'programmer' }, 'programmer': { jp: 'ぷろぐらまー' },
+      'こんぴゅーたー': { en: 'computer' }, 'computer': { jp: 'こんぴゅーたー' },
+      'いんたーねっと': { en: 'internet' }, 'internet': { jp: 'いんたーねっと' },
+      'すまーとふぉん': { en: 'smartphone' }, 'smartphone': { jp: 'すまーとふぉん' }
     }
 
     return translations[word]?.[toLang] || null
@@ -196,18 +168,12 @@ export const useGameLogic = () => {
     console.log(`Target language: ${targetLanguage}`)
     console.log(`Word ID: ${currentWordItem.word_id}`)
 
-    // まず簡単な翻訳辞書を試す（フォールバック用）
     console.log(`Word item language: ${currentWordItem.language}`)
-    const simpleTranslation = getSimpleTranslation(currentWordItem.word, currentWordItem.language || 'jp', targetLanguage)
-    if (simpleTranslation) {
-      console.log(`✅ Simple translation found: ${currentWordItem.word} -> ${simpleTranslation}`)
-      return simpleTranslation
-    }
 
-    // word_idが存在する場合はDynamoDBから翻訳を取得
+    // 1. DynamoDBから直接翻訳を取得（最優先）
     if (currentWordItem.word_id && currentWordItem.word_id !== 'undefined') {
       try {
-        console.log(`Fetching translation from DynamoDB for word_id: ${currentWordItem.word_id}`)
+        console.log(`🔍 Fetching translation from DynamoDB for word_id: ${currentWordItem.word_id}`)
         const response = await apiClient.getTranslation(currentWordItem.word_id, targetLanguage)
         
         if (response.data && response.data.translation) {
@@ -215,8 +181,15 @@ export const useGameLogic = () => {
           return response.data.translation
         }
       } catch (error) {
-        console.warn(`❌ DynamoDB translation not found for word_id: ${currentWordItem.word_id}`, error)
+        console.warn(`⚠️ DynamoDB translation not found for word_id: ${currentWordItem.word_id}`, error)
       }
+    }
+
+    // 2. 簡単な翻訳辞書を試す（高速フォールバック）
+    const simpleTranslation = getSimpleTranslation(currentWordItem.word, currentWordItem.language || 'jp', targetLanguage)
+    if (simpleTranslation) {
+      console.log(`✅ Simple translation found: ${currentWordItem.word} -> ${simpleTranslation}`)
+      return simpleTranslation
     }
 
     // DynamoDBで見つからない場合は従来の方法を試す

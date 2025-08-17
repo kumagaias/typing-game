@@ -686,7 +686,7 @@ export default function GameUI() {
                   isVisible={effectState.showDamage}
                   onComplete={() => setEffectState(prev => ({ ...prev, showDamage: false }))}
                 />
-                <ComboEffect combo={gameState.combo} />
+                <ComboEffect combo={gameState.combo} isVisible={gameState.combo >= 3} />
               </div>
               <div className="text-lg font-semibold text-white drop-shadow-lg">{getLocalizedText('player', gameState.displayLanguage)}</div>
               <div className="flex justify-center">
@@ -717,12 +717,14 @@ export default function GameUI() {
               <div className="text-6xl mb-2 relative">
                 {gameState.enemyHP > 0 ? currentEnemyData.icon : currentEnemyData.defeatedIcon}
                 <EnemyDamageEffect
-                  show={effectState.showEnemyDamage}
+                  isVisible={effectState.showEnemyDamage}
                   damage={effectState.lastDamage}
+                  onComplete={() => setEffectState(prev => ({ ...prev, showEnemyDamage: false }))}
                 />
                 <ExplosionEffect
-                  show={effectState.showExplosion}
+                  isVisible={effectState.showExplosion}
                   skippable={effectState.explosionSkippable}
+                  onComplete={() => setEffectState(prev => ({ ...prev, showExplosion: false }))}
                 />
               </div>
               <div className="text-lg font-semibold text-white drop-shadow-lg">
