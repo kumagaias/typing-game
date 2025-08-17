@@ -664,8 +664,8 @@ export default function GameUI() {
               {getLocalizedText('score', gameState.displayLanguage)}: <span className="text-green-300">{(gameState.score || 0).toLocaleString()}</span>
               <ScoreEffect
                 key={effectState.scoreEffectKey}
-                show={effectState.showScoreEffect}
-                score={effectState.lastScoreGain}
+                isVisible={effectState.showScoreEffect}
+                scoreGain={effectState.lastScoreGain}
                 onComplete={() => setEffectState(prev => ({ ...prev, showScoreEffect: false }))}
               />
               {gameState.combo > 0 && (

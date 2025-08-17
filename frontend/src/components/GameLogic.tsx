@@ -284,12 +284,12 @@ export const useGameLogic = () => {
   const fetchWordsForRound = async (category: string, round: number, language: 'jp' | 'en' = 'jp', abortSignal?: AbortSignal): Promise<WordItem[]> => {
     if (!category) {
       console.warn('No category selected')
-      return
+      return []
     }
 
     // 既にキャンセルされている場合は処理を中断
     if (abortSignal?.aborted) {
-      return
+      return []
     }
 
     setGameState(prev => ({ ...prev, wordsLoading: true }))
@@ -299,7 +299,7 @@ export const useGameLogic = () => {
       
       // キャンセルチェック
       if (abortSignal?.aborted) {
-        return
+        return []
       }
       
       const response = await apiClient.getWords(category, round, language)
