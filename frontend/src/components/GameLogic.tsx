@@ -305,53 +305,26 @@ export const useGameLogic = () => {
       const response = await apiClient.getWords(category, round, language)
       const allWords = response.words || []
 
-      // 言語でフィルタリング（バックエンドが対応していない場合の対策）
+      // DynamoDBから取得した単語をログ出力
       console.log(`API returned ${allWords.length} words for ${category} round ${round}`)
-      console.log('Sample words:', allWords.slice(0, 3))
+      console.log('Sample words:', allWords.slice(0, 5).map(w => `${w.word}(${w.type})`))
 
-      // 言語プロパティを持つ単語の数をチェック
-      const wordsWithLanguage = allWords.filter(word => word.language)
-      console.log(`Words with language property: ${wordsWithLanguage.length}`)
+      // 言語でフィルタリング
+      let filteredWords = allWords.filter(word => word.language === language)
+      console.log(`After filtering for ${language}: ${filteredWords.length} words`)
 
-      let filteredWords = allWords
-
-      // 言語プロパティを持つ単語が存在する場合のみフィルタリング
-      if (wordsWithLanguage.length > 0) {
-        filteredWords = allWords.filter(word => word.language === language)
-        console.log(`After filtering for ${language}: ${filteredWords.length} words`)
-
-        // 指定言語の単語がない場合は、言語プロパティを持つすべての単語を表示
-        if (filteredWords.length === 0) {
-          console.warn(`No words found for ${language}, showing available languages:`)
-          const languageSet = new Set(wordsWithLanguage.map(w => w.language))
-          const availableLanguages = Array.from(languageSet)
-          console.log('Available languages:', availableLanguages)
-        }
-      } else {
-        console.log('Words do not have language property, inferring language from content')
-
-        // 単語の内容から言語を推定してフィルタリング
-        filteredWords = allWords.filter(word => {
-          const isJapanese = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(word.word)
-          const isEnglish = /^[a-zA-Z\s]+$/.test(word.word)
-
-          if (language === 'jp') {
-            return isJapanese
-          } else if (language === 'en') {
-            return isEnglish
-          }
-          return false
-        })
-
-        console.log(`After language inference for ${language}: ${filteredWords.length} words`)
-        console.log('Sample filtered words:', filteredWords.slice(0, 3).map(w => w.word))
-      }
-
-      // フィルタリング後に単語がない場合はフォールバックを使用
+      // フィルタリング後に単語がない場合
       if (filteredWords.length === 0) {
-        console.warn(`No words found for language ${language}, using fallback`)
-        throw new Error('No words found for selected language')
+        console.warn(`No words found for language ${language} in DynamoDB, using fallback`)
+        throw new Error('No words found for selected language in DynamoDB')
       }
+
+      // 単語の種類別に分類
+      const normalWords = filteredWords.filter(w => w.type === 'normal')
+      const bonusWords = filteredWords.filter(w => w.type === 'bonus')
+      const debuffWords = filteredWords.filter(w => w.type === 'debuff')
+      
+      console.log(`Word types - normal: ${normalWords.length}, bonus: ${bonusWords.length}, debuff: ${debuffWords.length}`)
 
       // 状態を更新
       setGameState(prev => ({
@@ -359,7 +332,8 @@ export const useGameLogic = () => {
         availableWords: filteredWords,
         wordsLoading: false
       }))
-      console.log(`Loaded ${filteredWords.length} words for category ${category}, round ${round}, language ${language}`)
+      
+      console.log(`✅ Successfully loaded ${filteredWords.length} words from DynamoDB for ${category}, round ${round}, language ${language}`)
       
       // 単語リストを返す
       return filteredWords

@@ -211,6 +211,7 @@ func getLeaderboard(c *gin.Context) {
 func getWords(c *gin.Context) {
 	category := c.Param("category")
 	roundStr := c.Param("round")
+	language := c.DefaultQuery("language", "jp") // 言語パラメータを取得（デフォルトは日本語）
 	
 	// カテゴリーの検証
 	validCategories := []string{"beginner_words", "intermediate_words", "beginner_conversation", "intermediate_conversation"}
@@ -226,23 +227,40 @@ func getWords(c *gin.Context) {
 		return
 	}
 	
+	// 言語パラメータの検証
+	validLanguages := []string{"jp", "en"}
+	isValidLanguage := false
+	for _, validLang := range validLanguages {
+		if language == validLang {
+			isValidLanguage = true
+			break
+		}
+	}
+	if !isValidLanguage {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid language parameter"})
+		return
+	}
+	
 	round, err := strconv.Atoi(roundStr)
 	if err != nil || round < 1 || round > 5 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid round parameter"})
 		return
 	}
 
-	words, err := fetchWords(category, round)
+	words, err := fetchWords(category, round, language)
 	if err != nil {
-		log.Printf("Failed to fetch words for category %s, round %d: %v", category, round, err)
+		log.Printf("Failed to fetch words for category %s, round %d, language %s: %v", category, round, language, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch words"})
 		return
 	}
+
+	log.Printf("Successfully fetched %d words for category %s, round %d, language %s", len(words), category, round, language)
 
 	c.JSON(http.StatusOK, gin.H{
 		"words": words,
 		"category": category,
 		"round": round,
+		"language": language,
 	})
 }
 
@@ -445,23 +463,25 @@ func fetchLeaderboard() ([]LeaderboardItem, error) {
 	return items, nil
 }
 
-func fetchWords(category string, round int) ([]WordItem, error) {
+func fetchWords(category string, round int, language string) ([]WordItem, error) {
 	wordsTable := os.Getenv("WORDS_TABLE_NAME")
 	if wordsTable == "" {
 		return nil, fmt.Errorf("WORDS_TABLE_NAME environment variable not set")
 	}
 
-	// カテゴリーとラウンドで単語を取得
+	// カテゴリー、ラウンド、言語で単語を取得
 	result, err := dynamoClient.Query(context.TODO(), &dynamodb.QueryInput{
 		TableName: aws.String(wordsTable),
 		KeyConditionExpression: aws.String("category = :category"),
-		FilterExpression: aws.String("#round = :round"),
+		FilterExpression: aws.String("#round = :round AND #language = :language"),
 		ExpressionAttributeNames: map[string]string{
 			"#round": "round",
+			"#language": "language",
 		},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":category": &types.AttributeValueMemberS{Value: category},
 			":round": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", round)},
+			":language": &types.AttributeValueMemberS{Value: language},
 		},
 	})
 
@@ -475,7 +495,7 @@ func fetchWords(category string, round int) ([]WordItem, error) {
 		return nil, fmt.Errorf("failed to unmarshal words: %w", err)
 	}
 
-	log.Printf("Successfully fetched %d words for category %s, round %d from DynamoDB", len(words), category, round)
+	log.Printf("Successfully fetched %d words for category %s, round %d, language %s from DynamoDB", len(words), category, round, language)
 	return words, nil
 }
 
