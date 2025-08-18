@@ -13,18 +13,17 @@ import { useGameLogic } from './GameLogic'
 import { ENEMY_DATA, getLocalizedText } from './GameData'
 
 export default function GameUI() {
-  try {
-    const gameLogicResult = useGameLogic()
-    
-    // useGameLogicの戻り値が正しく取得できているかチェック
-    if (!gameLogicResult || !gameLogicResult.gameState) {
-      return (
-        <div className="min-h-screen bg-gradient-to-br from-purple-600/40 via-indigo-600/30 to-black/50 flex items-center justify-center">
-          <div className="text-white text-xl">Error: Game logic not initialized</div>
-        </div>
-      )
-    }
+  const gameLogicResult = useGameLogic()
   
+  // useGameLogicの戻り値が正しく取得できているかチェック
+  if (!gameLogicResult || !gameLogicResult.gameState) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-600/40 via-indigo-600/30 to-black/50 flex items-center justify-center">
+        <div className="text-white text-xl">Error: Game logic not initialized</div>
+      </div>
+    )
+  }
+
   const {
     gameState,
     setGameState,
@@ -1087,12 +1086,4 @@ export default function GameUI() {
       )}
     </div>
   )
-  } catch (error) {
-    console.error('Error in GameUI:', error)
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-600/40 via-indigo-600/30 to-black/50 flex items-center justify-center">
-        <div className="text-white text-xl">Error: {error instanceof Error ? error.message : 'Unknown error'}</div>
-      </div>
-    )
-  }
 }
