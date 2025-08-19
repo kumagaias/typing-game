@@ -155,9 +155,9 @@ export default function GameUI() {
 
   // 入力処理（変換中でも入力値は更新する）
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target) {
-      setGameState(prev => ({ ...prev, userInput: e.target.value }))
-    }
+    // キャプチャしてからstateアップデートを行う（イベントプーリング対策）
+    const value = e.target?.value ?? ''
+    setGameState(prev => ({ ...prev, userInput: value }))
   }
 
   // 入力判定処理
@@ -393,13 +393,13 @@ export default function GameUI() {
 
   const handleCompositionEnd = (e: React.CompositionEvent<HTMLInputElement>) => {
     setIsComposing(false)
-    if (e.currentTarget) {
-      setGameState(prev => ({ ...prev, userInput: e.currentTarget.value }))
-      // 変換確定時に自動判定
-      setTimeout(() => {
-        checkInput()
-      }, 10)
-    }
+    // キャプチャしてからstateアップデートを行う（イベントプーリング対策）
+    const value = e.currentTarget?.value ?? ''
+    setGameState(prev => ({ ...prev, userInput: value }))
+    // 変換確定時に自動判定
+    setTimeout(() => {
+      checkInput()
+    }, 10)
   }
 
   // 次のラウンドへ進む

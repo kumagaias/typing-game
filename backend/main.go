@@ -16,7 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/awslabs/aws-lambda-go-api-proxy/gin"
+	ginadapter "github.com/awslabs/aws-lambda-go-api-proxy/gin"
 	"github.com/gin-gonic/gin"
 )
 
@@ -69,24 +69,24 @@ func init() {
 
 	// Gin router setup
 	r := gin.Default()
-	
+
 	// CORS middleware
 	r.Use(func(c *gin.Context) {
 		c.Header("Access-Control-Allow-Origin", "*")
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		
+
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
 			return
 		}
-		
+
 		c.Next()
 	})
-	
+
 	// Routes
 	setupRoutes(r)
-	
+
 	ginLambda = ginadapter.New(r)
 }
 
@@ -96,7 +96,7 @@ func setupRoutes(r *gin.Engine) {
 	{
 		// Health check
 		api.GET("/health", healthCheck)
-		
+
 		// Game routes
 		game := api.Group("/game")
 		{
@@ -107,13 +107,13 @@ func setupRoutes(r *gin.Engine) {
 			game.GET("/translation/:word_id", getTranslation)
 		}
 	}
-	
+
 	// Also handle routes with stage prefix
 	stageApi := r.Group("/production/api")
 	{
 		// Health check
 		stageApi.GET("/health", healthCheck)
-		
+
 		// Game routes
 		stageGame := stageApi.Group("/game")
 		{
@@ -128,7 +128,7 @@ func setupRoutes(r *gin.Engine) {
 
 func healthCheck(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
-		"status": "ok",
+		"status":  "ok",
 		"message": "Typing Game API is running",
 	})
 }
@@ -141,12 +141,12 @@ func submitScore(c *gin.Context) {
 		Time       int    `json:"time" binding:"min=0"`
 		Category   string `json:"category" binding:"required"`
 	}
-	
+
 	if err := c.ShouldBindJSON(&scoreData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	
+
 	// 入力検証（文字数で計算、UTF-8対応）
 	playerNameRunes := []rune(scoreData.PlayerName)
 	if len(playerNameRunes) > 20 || len(playerNameRunes) < 1 {
@@ -154,22 +154,22 @@ func submitScore(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Player name must be 1-20 characters"})
 		return
 	}
-	
+
 	if scoreData.Score < 0 || scoreData.Score > 1000000 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid score range"})
 		return
 	}
-	
+
 	if scoreData.Round < 1 || scoreData.Round > 5 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid round"})
 		return
 	}
-	
+
 	if scoreData.Time < 0 || scoreData.Time > 3600 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid time"})
 		return
 	}
-	
+
 	// Save to DynamoDB
 	err := saveScore(scoreData.PlayerName, scoreData.Score, scoreData.Round, scoreData.Time, scoreData.Category)
 	if err != nil {
@@ -184,9 +184,9 @@ func submitScore(c *gin.Context) {
 		log.Printf("Failed to update leaderboard for player %s: %v", scoreData.PlayerName, err)
 		// Continue even if leaderboard update fails
 	}
-	
+
 	log.Printf("Score submitted successfully: %+v", scoreData)
-	
+
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Score submitted successfully",
 		"data":    scoreData,
@@ -200,9 +200,9 @@ func getLeaderboard(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch leaderboard"})
 		return
 	}
-	
+
 	log.Printf("Returning leaderboard data: %+v", leaderboard)
-	
+
 	c.JSON(http.StatusOK, gin.H{
 		"leaderboard": leaderboard,
 	})
@@ -212,7 +212,7 @@ func getWords(c *gin.Context) {
 	category := c.Param("category")
 	roundStr := c.Param("round")
 	language := c.DefaultQuery("language", "jp") // 言語パラメータを取得（デフォルトは日本語）
-	
+
 	// カテゴリーの検証
 	validCategories := []string{"beginner_words", "intermediate_words", "beginner_conversation", "intermediate_conversation"}
 	isValidCategory := false
@@ -226,7 +226,7 @@ func getWords(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid category parameter"})
 		return
 	}
-	
+
 	// 言語パラメータの検証
 	validLanguages := []string{"jp", "en"}
 	isValidLanguage := false
@@ -240,7 +240,7 @@ func getWords(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid language parameter"})
 		return
 	}
-	
+
 	round, err := strconv.Atoi(roundStr)
 	if err != nil || round < 1 || round > 5 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid round parameter"})
@@ -257,9 +257,9 @@ func getWords(c *gin.Context) {
 	log.Printf("Successfully fetched %d words for category %s, round %d, language %s", len(words), category, round, language)
 
 	c.JSON(http.StatusOK, gin.H{
-		"words": words,
+		"words":    words,
 		"category": category,
-		"round": round,
+		"round":    round,
 		"language": language,
 	})
 }
@@ -267,9 +267,9 @@ func getWords(c *gin.Context) {
 func getCategories(c *gin.Context) {
 	// 言語パラメータを取得（デフォルトは日本語）
 	language := c.DefaultQuery("language", "jp")
-	
+
 	var categories []map[string]interface{}
-	
+
 	if language == "en" {
 		categories = []map[string]interface{}{
 			{
@@ -342,7 +342,7 @@ func saveScore(playerName string, score, round, gameTime int, category string) e
 		log.Printf("Environment variables: SCORES_TABLE_NAME=%s", scoresTable)
 		return fmt.Errorf("SCORES_TABLE_NAME environment variable not set")
 	}
-	
+
 	log.Printf("Saving score to table: %s, player: %s, score: %d", scoresTable, playerName, score)
 
 	item := ScoreItem{
@@ -466,21 +466,62 @@ func fetchLeaderboard() ([]LeaderboardItem, error) {
 func fetchWords(category string, round int, language string) ([]WordItem, error) {
 	wordsTable := os.Getenv("WORDS_TABLE_NAME")
 	if wordsTable == "" {
-		return nil, fmt.Errorf("WORDS_TABLE_NAME environment variable not set")
+		log.Printf("WORDS_TABLE_NAME not set; using local fallback for category %s round %d language %s", category, round, language)
+		var fallbackWords []string
+		if language == "jp" {
+			switch category {
+			case "beginner_words":
+				fallbackWords = []string{"みず", "たべもの", "のみもの", "いえ", "がっこう", "しごと", "ともだち", "かぞく", "いぬ", "ねこ"}
+			case "intermediate_words":
+				fallbackWords = []string{"かんきょう", "おんだんか", "こうがい", "りさいくる", "しぜん", "どうぶつ", "しょくぶつ", "せいたいけい", "ちきゅう", "うちゅう"}
+			case "beginner_conversation":
+				fallbackWords = []string{"おはよう", "こんにちは", "こんばんは", "おやすみ", "はじめまして", "よろしく", "ありがとう", "すみません", "ごめんなさい", "いいえ"}
+			case "intermediate_conversation":
+				fallbackWords = []string{"おひさしぶりです", "げんきでしたか", "おかげさまで", "いかがですか", "どうされましたか", "なにかありましたか", "しんぱいしています", "だいじょうぶでしょうか", "てつだいましょうか", "なにかできることは"}
+			default:
+				fallbackWords = []string{"みず", "たべもの", "いえ", "がっこう", "いぬ", "ねこ"}
+			}
+		} else {
+			switch category {
+			case "beginner_words":
+				fallbackWords = []string{"water", "food", "drink", "house", "school", "work", "friend", "family", "dog", "cat"}
+			case "intermediate_words":
+				fallbackWords = []string{"environment", "global warming", "pollution", "recycle", "nature", "animal", "plant", "ecosystem", "earth", "space"}
+			case "beginner_conversation":
+				fallbackWords = []string{"good morning", "hello", "good evening", "good night", "nice to meet you", "please treat me well", "thank you", "excuse me", "sorry", "no"}
+			case "intermediate_conversation":
+				fallbackWords = []string{"long time no see", "how have you been", "thanks to you", "how are things", "what happened", "did something happen", "i am worried", "will it be okay", "shall i help", "is there anything i can do"}
+			default:
+				fallbackWords = []string{"water", "food", "house", "school", "dog", "cat"}
+			}
+		}
+
+		var items []WordItem
+		for i, w := range fallbackWords {
+			items = append(items, WordItem{
+				Category: category,
+				WordID:   fmt.Sprintf("fallback_%d_%d", round, i),
+				Word:     w,
+				Round:    round,
+				Type:     "normal",
+				Language: language,
+			})
+		}
+		return items, nil
 	}
 
 	// カテゴリー、ラウンド、言語で単語を取得
 	result, err := dynamoClient.Query(context.TODO(), &dynamodb.QueryInput{
-		TableName: aws.String(wordsTable),
+		TableName:              aws.String(wordsTable),
 		KeyConditionExpression: aws.String("category = :category"),
-		FilterExpression: aws.String("#round = :round AND #language = :language"),
+		FilterExpression:       aws.String("#round = :round AND #language = :language"),
 		ExpressionAttributeNames: map[string]string{
-			"#round": "round",
+			"#round":    "round",
 			"#language": "language",
 		},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":category": &types.AttributeValueMemberS{Value: category},
-			":round": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", round)},
+			":round":    &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", round)},
 			":language": &types.AttributeValueMemberS{Value: language},
 		},
 	})
@@ -502,17 +543,17 @@ func fetchWords(category string, round int, language string) ([]WordItem, error)
 func getTranslation(c *gin.Context) {
 	wordID := c.Param("word_id")
 	targetLanguage := c.Query("language")
-	
+
 	if wordID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "word_id parameter is required"})
 		return
 	}
-	
+
 	if targetLanguage == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "language query parameter is required"})
 		return
 	}
-	
+
 	// 有効な言語かチェック
 	validLanguages := []string{"jp", "en", "es", "fr", "de", "zh", "ko"}
 	isValidLanguage := false
@@ -526,18 +567,18 @@ func getTranslation(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid language parameter"})
 		return
 	}
-	
+
 	translation, err := fetchTranslation(wordID, targetLanguage)
 	if err != nil {
 		log.Printf("Failed to fetch translation for word_id %s, language %s: %v", wordID, targetLanguage, err)
 		c.JSON(http.StatusNotFound, gin.H{"error": "Translation not found"})
 		return
 	}
-	
+
 	c.JSON(http.StatusOK, gin.H{
 		"translation": translation,
-		"word_id": wordID,
-		"language": targetLanguage,
+		"word_id":     wordID,
+		"language":    targetLanguage,
 	})
 }
 
@@ -546,7 +587,7 @@ func fetchTranslation(wordID, targetLanguage string) (string, error) {
 	if translationsTable == "" {
 		translationsTable = "typing-game-translations"
 	}
-	
+
 	// DynamoDBから翻訳を取得
 	result, err := dynamoClient.GetItem(context.TODO(), &dynamodb.GetItemInput{
 		TableName: aws.String(translationsTable),
@@ -559,21 +600,21 @@ func fetchTranslation(wordID, targetLanguage string) (string, error) {
 			},
 		},
 	})
-	
+
 	if err != nil {
 		return "", fmt.Errorf("failed to get translation from DynamoDB: %w", err)
 	}
-	
+
 	if result.Item == nil {
 		return "", fmt.Errorf("translation not found for word_id: %s, language: %s", wordID, targetLanguage)
 	}
-	
+
 	var translation TranslationItem
 	err = attributevalue.UnmarshalMap(result.Item, &translation)
 	if err != nil {
 		return "", fmt.Errorf("failed to unmarshal translation: %w", err)
 	}
-	
+
 	return translation.Translation, nil
 }
 
@@ -584,21 +625,21 @@ func main() {
 	} else {
 		// Running locally
 		r := gin.Default()
-		
+
 		// CORS middleware
 		r.Use(func(c *gin.Context) {
 			c.Header("Access-Control-Allow-Origin", "*")
 			c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 			c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization")
-			
+
 			if c.Request.Method == "OPTIONS" {
 				c.AbortWithStatus(204)
 				return
 			}
-			
+
 			c.Next()
 		})
-		
+
 		setupRoutes(r)
 		log.Println("Server starting on :8080")
 		r.Run(":8080")
