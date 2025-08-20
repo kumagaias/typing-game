@@ -530,6 +530,12 @@ export default function GameUI() {
         return
       }
 
+      // 入力欄にフォーカスがある場合はSpaceキーのゲーム進行処理をスキップ
+      const active = document.activeElement
+      if (active && active.tagName === 'INPUT') {
+        return
+      }
+
       if (e.code === 'Space') {
         e.preventDefault()
         if (gameState.gameStatus === 'waiting') {
