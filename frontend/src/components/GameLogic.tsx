@@ -155,7 +155,28 @@ export const useGameLogic = () => {
       'ぷろぐらまー': { en: 'programmer' }, 'programmer': { jp: 'ぷろぐらまー' },
       'こんぴゅーたー': { en: 'computer' }, 'computer': { jp: 'こんぴゅーたー' },
       'いんたーねっと': { en: 'internet' }, 'internet': { jp: 'いんたーねっと' },
-      'すまーとふぉん': { en: 'smartphone' }, 'smartphone': { jp: 'すまーとふぉん' }
+      'すまーとふぉん': { en: 'smartphone' }, 'smartphone': { jp: 'すまーとふぉん' },
+      
+      // ラウンド5の長い専門用語（正確な対応関係）
+      'じんこうちのうぎじゅつしゃ': { en: 'artificial intelligence' }, 'artificial intelligence': { jp: 'じんこうちのうぎじゅつしゃ' },
+      'きかいがくしゅう': { en: 'machine learning' }, 'machine learning': { jp: 'きかいがくしゅう' },
+      'でぃーぷらーにんぐ': { en: 'deep learning' }, 'deep learning': { jp: 'でぃーぷらーにんぐ' },
+      'しぜんげんごしょり': { en: 'natural language processing' }, 'natural language processing': { jp: 'しぜんげんごしょり' },
+      'こんぴゅーたーびじょん': { en: 'computer vision' }, 'computer vision': { jp: 'こんぴゅーたーびじょん' },
+      'でーたさいえんす': { en: 'data science' }, 'data science': { jp: 'でーたさいえんす' },
+      'くらうどこんぴゅーてぃんぐ': { en: 'cloud computing' }, 'cloud computing': { jp: 'くらうどこんぴゅーてぃんぐ' },
+      'いんたーねっとおぶしんぐす': { en: 'internet of things' }, 'internet of things': { jp: 'いんたーねっとおぶしんぐす' },
+      'ばーちゃるりありてぃ': { en: 'virtual reality' }, 'virtual reality': { jp: 'ばーちゃるりありてぃ' },
+      'おーぐめんてっどりありてぃ': { en: 'augmented reality' }, 'augmented reality': { jp: 'おーぐめんてっどりありてぃ' },
+      'そふとうぇあえんじにありんぐ': { en: 'software engineering' }, 'software engineering': { jp: 'そふとうぇあえんじにありんぐ' },
+      'しすてむあどみにすとれーしょん': { en: 'system administration' }, 'system administration': { jp: 'しすてむあどみにすとれーしょん' },
+      'ねっとわーくえんじにありんぐ': { en: 'network engineering' }, 'network engineering': { jp: 'ねっとわーくえんじにありんぐ' },
+      'でーたべーすあどみにすとれーしょん': { en: 'database administration' }, 'database administration': { jp: 'でーたべーすあどみにすとれーしょん' },
+      'ふるすたっくでべろっぷめんと': { en: 'full stack development' }, 'full stack development': { jp: 'ふるすたっくでべろっぷめんと' },
+      'ゆーざーえくすぺりえんすでざいん': { en: 'user experience design' }, 'user experience design': { jp: 'ゆーざーえくすぺりえんすでざいん' },
+      'でじたるまーけてぃんぐすぺしゃりすと': { en: 'digital marketing specialist' }, 'digital marketing specialist': { jp: 'でじたるまーけてぃんぐすぺしゃりすと' },
+      'びじねすいんてりじぇんすあなりすと': { en: 'business intelligence analyst' }, 'business intelligence analyst': { jp: 'びじねすいんてりじぇんすあなりすと' },
+      'くらうどそりゅーしょんあーきてくと': { en: 'cloud solution architect' }, 'cloud solution architect': { jp: 'くらうどそりゅーしょんあーきてくと' }
     }
 
     return translations[word]?.[toLang] || null
