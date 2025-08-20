@@ -444,8 +444,8 @@ export const useGameLogic = () => {
     let selectedWord: WordItem
     let wordType: 'normal' | 'bonus' | 'debuff' = 'normal'
 
-    // 20%の確率で特殊単語
-    if (Math.random() < 0.2 && (bonusWords.length > 0 || debuffWords.length > 0)) {
+  // 5%の確率で特殊単語（さらに頻度を下げる）
+  if (Math.random() < 0.05 && (bonusWords.length > 0 || debuffWords.length > 0)) {
       const isBonus = Math.random() < 0.6 // 60%でボーナス、40%でデバフ
       const specialWords = isBonus ? bonusWords : debuffWords
       wordType = isBonus ? 'bonus' : 'debuff'
